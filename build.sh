@@ -1,14 +1,16 @@
 #!/bin/bash
 # build.sh: compile the Zest SwiftPM executable and assemble Zest.app.
-# Command Line Tools only, no Xcode project. Ad hoc code signature.
+# Command Line Tools only, no Xcode project.
+# Signing: Developer ID with hardened runtime when the identity is present
+# and the config is release; ad hoc otherwise.
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
 CONFIG="${1:-release}"
 APP="$ROOT/Zest.app"
 BIN_NAME="Zest"
+IDENTITY="${ZEST_SIGN_IDENTITY:-Developer ID Application: Shashank Karpal (GZAN9987X2)}"
 
 echo "==> Building ($CONFIG)"
 swift build -c "$CONFIG"
@@ -25,11 +27,26 @@ mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 cp "$BIN_PATH" "$APP/Contents/MacOS/$BIN_NAME"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
-if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
-  cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+
+# App icon is generated from the design system at build time; the repository
+# holds PNGs, never a binary icon blob.
+ICONSET_SRC="$ROOT/design/app-icons/macos/AppIcon.appiconset"
+if [ -d "$ICONSET_SRC" ]; then
+  echo "==> Building AppIcon.icns from design/app-icons"
+  TMPICON="$(mktemp -d)/AppIcon.iconset"
+  mkdir -p "$TMPICON"
+  cp "$ICONSET_SRC"/icon_*.png "$TMPICON/"
+  iconutil -c icns "$TMPICON" -o "$APP/Contents/Resources/AppIcon.icns" \
+    || echo "   (icns generation skipped)"
 fi
 
-echo "==> Ad hoc codesign"
-codesign --force --deep --sign - "$APP" 2>/dev/null || echo "   (codesign skipped)"
+if [ "$CONFIG" = "release" ] && security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
+  echo "==> Codesign: Developer ID, hardened runtime"
+  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
+  codesign --verify --strict --verbose=2 "$APP"
+else
+  echo "==> Codesign: ad hoc"
+  codesign --force --deep --sign - "$APP" 2>/dev/null || echo "   (codesign skipped)"
+fi
 
 echo "==> Done: $APP"
