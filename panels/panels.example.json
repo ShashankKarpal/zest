@@ -1,0 +1,6 @@
+[
+  {"widget": "account-usage-1.widget/index.jsx", "out": "acct1.sh", "extractor": "backtick"},
+  {"widget": "account-usage-2.widget/index.jsx", "out": "acct2.sh", "extractor": "backtick"},
+  {"widget": "system-vitals/index.jsx",          "out": "vitals.sh", "extractor": "dquote"},
+  {"widget": "claude-tokens.widget/index.coffee", "out": "cc.sh",    "extractor": "coffee"}
+]
