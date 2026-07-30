@@ -149,3 +149,27 @@ MIT. See [LICENSE](LICENSE).
 Built by Shashank Karpal.
 
 > Designed and built with Claude (Anthropic).
+
+## Install
+
+Download `Zest-v3.0-macOS.zip` from [Releases](https://github.com/ShashankKarpal/zest/releases/latest),
+unzip, and move `Zest.app` to `/Applications`.
+
+Signed with an Apple Developer ID and notarized by Apple, so it opens without
+Gatekeeper warnings. No Xcode required.
+
+**Requirements:** Apple Silicon, macOS 14 or later.
+
+**First launch:** Zest asks for your admin password once to install a privileged
+helper. This is required to read `powermetrics` for live power-flow data. That
+helper is also why Zest cannot ship on the Mac App Store: the sandbox forbids
+both root helpers and `powermetrics`, so a notarized direct download is the
+correct distribution channel.
+
+**Verify it yourself:**
+
+    ditto -x -k Zest-v3.0-macOS.zip .
+    xcrun stapler validate Zest.app
+    spctl -a -vvv Zest.app
+
+Expect `source=Notarized Developer ID`.

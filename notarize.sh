@@ -19,7 +19,7 @@ ZIP="/tmp/Zest-notarize.zip"
 DIST="$ROOT/Zest-v${VERSION}-macOS.zip"
 
 echo "==> Zipping for submission"
-ditto -c -k --keepParent "$APP" "$ZIP"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 
 echo "==> Submitting to the Apple notary service (can take a few minutes)"
 xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
@@ -32,5 +32,5 @@ spctl --assess --type execute --verbose=2 "$APP"
 
 echo "==> Building distributable zip"
 rm -f "$DIST"
-ditto -c -k --keepParent "$APP" "$DIST"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$DIST"
 echo "==> Done: $DIST"
