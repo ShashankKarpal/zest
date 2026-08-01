@@ -1,8 +1,8 @@
 #!/bin/bash
 # build.sh: compile the Zest SwiftPM executable and assemble Zest.app.
 # Command Line Tools only, no Xcode project.
-# Signing: Developer ID with hardened runtime when the identity is present
-# and the config is release; ad hoc otherwise.
+# Signing: set ZEST_SIGN_IDENTITY to your "Developer ID Application: ..."
+# identity for a signed release build; otherwise the app is ad hoc signed.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
@@ -10,7 +10,7 @@ cd "$ROOT"
 CONFIG="${1:-release}"
 APP="$ROOT/Zest.app"
 BIN_NAME="Zest"
-IDENTITY="${ZEST_SIGN_IDENTITY:-Developer ID Application: Shashank Karpal (GZAN9987X2)}"
+IDENTITY="${ZEST_SIGN_IDENTITY:-}"
 
 echo "==> Building ($CONFIG)"
 swift build -c "$CONFIG"
@@ -40,12 +40,12 @@ if [ -d "$ICONSET_SRC" ]; then
     || echo "   (icns generation skipped)"
 fi
 
-if [ "$CONFIG" = "release" ] && security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
+if [ "$CONFIG" = "release" ] && [ -n "$IDENTITY" ] && security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
   echo "==> Codesign: Developer ID, hardened runtime"
   codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
   codesign --verify --strict --verbose=2 "$APP"
 else
-  echo "==> Codesign: ad hoc"
+  echo "==> Codesign: ad hoc (set ZEST_SIGN_IDENTITY for a Developer ID build)"
   codesign --force --deep --sign - "$APP" 2>/dev/null || echo "   (codesign skipped)"
 fi
 
