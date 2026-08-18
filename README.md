@@ -11,11 +11,11 @@
 <p align="center"><b>A native macOS menu bar battery command center. Power flow, health trends, ecosystem batteries, and alerts in one place.</b></p>
 
 <p align="center">
-  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%2014%2B-1B7A55?style=flat-square">
-  <img alt="Status" src="https://img.shields.io/badge/status-v3-1B7A55?style=flat-square">
-  <img alt="Local only" src="https://img.shields.io/badge/local-only-1B7A55?style=flat-square">
-  <img alt="Stack" src="https://img.shields.io/badge/built%20with-Swift-1C1B1D?style=flat-square">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-1C1B1D?style=flat-square"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%2014%2B-4D4323?style=flat-square">
+  <img alt="Status" src="https://img.shields.io/badge/status-v3-4D4323?style=flat-square">
+  <img alt="Local only" src="https://img.shields.io/badge/local-only-4D4323?style=flat-square">
+  <img alt="Stack" src="https://img.shields.io/badge/built%20with-Swift-1A1917?style=flat-square">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-1A1917?style=flat-square"></a>
 </p>
 
 ## What it does
