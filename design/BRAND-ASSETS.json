@@ -1,0 +1,91 @@
+{
+  "assets": [
+    {
+      "destination": "design/github/readme-banner-dark-1400x400.png",
+      "destinationSha256": "2e2d369f585d1ca493f06f8e50d4e8d5136ac7b7ed30bce292d9fbc30539034b",
+      "mode": "copy",
+      "source": "design/marks/out/zest/web/banner-dark-1400x400.png",
+      "sourceSha256": "2e2d369f585d1ca493f06f8e50d4e8d5136ac7b7ed30bce292d9fbc30539034b"
+    },
+    {
+      "destination": "design/github/readme-banner-dark-1400x400.svg",
+      "destinationSha256": "559f68cdc4622bfd546b19b0e8a29992f2f0abe5346df7c1adf9362162da440f",
+      "mode": "copy",
+      "source": "design/marks/out/zest/web/banner-dark-1400x400.svg",
+      "sourceSha256": "559f68cdc4622bfd546b19b0e8a29992f2f0abe5346df7c1adf9362162da440f"
+    },
+    {
+      "destination": "design/github/readme-banner-light-1400x400.png",
+      "destinationSha256": "f18e56955504f063e9701e2c873cebfc98649f7eb208b71d6529ceb7b07b7d80",
+      "mode": "copy",
+      "source": "design/marks/out/zest/web/banner-light-1400x400.png",
+      "sourceSha256": "f18e56955504f063e9701e2c873cebfc98649f7eb208b71d6529ceb7b07b7d80"
+    },
+    {
+      "destination": "design/github/readme-banner-light-1400x400.svg",
+      "destinationSha256": "5fd0c2c28ca3630e001cdb8a45822caaf58c3ee65337ccad5a2b3b24371488ca",
+      "mode": "copy",
+      "source": "design/marks/out/zest/web/banner-light-1400x400.svg",
+      "sourceSha256": "5fd0c2c28ca3630e001cdb8a45822caaf58c3ee65337ccad5a2b3b24371488ca"
+    },
+    {
+      "destination": "design/github/social-preview-1280x640.png",
+      "destinationSha256": "d26c5e968c0d4013719ab7b34ced3a29424885123a9c8528cf2aa739df0c1425",
+      "mode": "copy",
+      "source": "design/marks/out/zest/web/social-preview-1280x640.png",
+      "sourceSha256": "d26c5e968c0d4013719ab7b34ced3a29424885123a9c8528cf2aa739df0c1425"
+    },
+    {
+      "destination": "design/logo/zest-lockup-horizontal-dark.svg",
+      "destinationSha256": "5534d317b016061bcdd327178d705b06831ce865d0fadc313efd64528e186d0e",
+      "mode": "copy",
+      "source": "design/marks/out/zest/wordmark/wordmark-horizontal-dark.svg",
+      "sourceSha256": "5534d317b016061bcdd327178d705b06831ce865d0fadc313efd64528e186d0e"
+    },
+    {
+      "destination": "design/logo/zest-lockup-horizontal.svg",
+      "destinationSha256": "1b6247956db759ae64a1f160defda53201b45b96150c3b6e57afb7c3b078d9f7",
+      "mode": "copy",
+      "source": "design/marks/out/zest/wordmark/wordmark-horizontal-light.svg",
+      "sourceSha256": "1b6247956db759ae64a1f160defda53201b45b96150c3b6e57afb7c3b078d9f7"
+    },
+    {
+      "destination": "design/logo/zest-symbol-dark.svg",
+      "destinationSha256": "6daf3de0068a0fa6a6df0029e18596254a49bfad5d01a06bfa9b72649a440504",
+      "mode": "copy",
+      "source": "design/marks/out/zest/svg/mark.svg",
+      "sourceSha256": "6daf3de0068a0fa6a6df0029e18596254a49bfad5d01a06bfa9b72649a440504"
+    },
+    {
+      "destination": "design/logo/zest-symbol-mono-black.svg",
+      "destinationSha256": "c81314e197ad09f2069af7b4a84de4e161ba150fd429a567be66e1b5e3aeca68",
+      "mode": "copy",
+      "source": "design/marks/out/zest/svg/mark-mono.svg",
+      "sourceSha256": "c81314e197ad09f2069af7b4a84de4e161ba150fd429a567be66e1b5e3aeca68"
+    },
+    {
+      "destination": "design/logo/zest-symbol.svg",
+      "destinationSha256": "c2bbcf6abee96993fa85654508e1868b4ab61f387baafcd6c804dd4f6a0b2cde",
+      "mode": "copy",
+      "source": "design/marks/out/zest/svg/mark-light.svg",
+      "sourceSha256": "c2bbcf6abee96993fa85654508e1868b4ab61f387baafcd6c804dd4f6a0b2cde"
+    },
+    {
+      "destination": "design/web/favicon.svg",
+      "destinationSha256": "0fe342f0a310975681e66dea7265b69a3faf009403683707834e6d88a259441e",
+      "mode": "copy",
+      "source": "design/marks/out/zest/web/favicon.svg",
+      "sourceSha256": "0fe342f0a310975681e66dea7265b69a3faf009403683707834e6d88a259441e"
+    }
+  ],
+  "brandVersion": "1.1.0",
+  "canonicalSourceCommit": "31d19c52a2565d0f4ba200ecde6be8b32af6b1f4",
+  "canonicalSourceDirty": true,
+  "contentSetSha256": "2c49649a5e1772d7c6c3961fc6c2fb7abd82d0cc33d56fdde45a397d53c4a225",
+  "generatorSha256": "0e6a2b10c9b320f5edb2c351e69d3aab55391d372a338dd62f792ce7f8974701",
+  "lockSha256": "d8574f93ee9b99d1758cfbb20da047518e49df75c0cd8a5ac5697b397542a802",
+  "project": "zest",
+  "schemaVersion": 1,
+  "tokenSha256": "4436a3733ac7810580b0c586b7c044e8bb737c25e21ec33176127095f4bf6f23",
+  "visibility": "public"
+}
