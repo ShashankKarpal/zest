@@ -1,6 +1,76 @@
 {
   "assets": [
     {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_128x128.png",
+      "destinationSha256": "87f73c16e055f7eafc2809fdb2a28db8b3a5371b7b82d4d054cb899073e9f0df",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_128x128.png",
+      "sourceSha256": "87f73c16e055f7eafc2809fdb2a28db8b3a5371b7b82d4d054cb899073e9f0df"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_128x128@2x.png",
+      "destinationSha256": "e1605652c6e393619a41bcd2ca557d6d6cc6b8e8fb3c486a0d2dea6883ac5062",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_128x128@2x.png",
+      "sourceSha256": "e1605652c6e393619a41bcd2ca557d6d6cc6b8e8fb3c486a0d2dea6883ac5062"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_16x16.png",
+      "destinationSha256": "ac5c7a1c1b834043370db9e3696e776f90a2b99b36c9aacac6248012b68ab7b7",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_16x16.png",
+      "sourceSha256": "ac5c7a1c1b834043370db9e3696e776f90a2b99b36c9aacac6248012b68ab7b7"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_16x16@2x.png",
+      "destinationSha256": "10b15329e185d7d3bf4f145c5ebb5026c84012411d7ff22ba7fc84add33ccc97",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_16x16@2x.png",
+      "sourceSha256": "10b15329e185d7d3bf4f145c5ebb5026c84012411d7ff22ba7fc84add33ccc97"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_256x256.png",
+      "destinationSha256": "e1605652c6e393619a41bcd2ca557d6d6cc6b8e8fb3c486a0d2dea6883ac5062",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_256x256.png",
+      "sourceSha256": "e1605652c6e393619a41bcd2ca557d6d6cc6b8e8fb3c486a0d2dea6883ac5062"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_256x256@2x.png",
+      "destinationSha256": "38cc4027ed2572e64c69d037d0acf2e84fcc0613d24f183f9155a15958661a8d",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_256x256@2x.png",
+      "sourceSha256": "38cc4027ed2572e64c69d037d0acf2e84fcc0613d24f183f9155a15958661a8d"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_32x32.png",
+      "destinationSha256": "10b15329e185d7d3bf4f145c5ebb5026c84012411d7ff22ba7fc84add33ccc97",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_32x32.png",
+      "sourceSha256": "10b15329e185d7d3bf4f145c5ebb5026c84012411d7ff22ba7fc84add33ccc97"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_32x32@2x.png",
+      "destinationSha256": "d099add0dbb8061c8a43b977e0d24107d80e32e22561defd3c2e8b07a279275d",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_32x32@2x.png",
+      "sourceSha256": "d099add0dbb8061c8a43b977e0d24107d80e32e22561defd3c2e8b07a279275d"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_512x512.png",
+      "destinationSha256": "38cc4027ed2572e64c69d037d0acf2e84fcc0613d24f183f9155a15958661a8d",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_512x512.png",
+      "sourceSha256": "38cc4027ed2572e64c69d037d0acf2e84fcc0613d24f183f9155a15958661a8d"
+    },
+    {
+      "destination": "design/app-icons/macos/AppIcon.appiconset/icon_512x512@2x.png",
+      "destinationSha256": "26733849b5594a9d19e8ee878b6f830110d45e58c81b802185cadffb3e6fd7a6",
+      "mode": "copy",
+      "source": "design/marks/out/zest/macos/AppIcon.iconset/icon_512x512@2x.png",
+      "sourceSha256": "26733849b5594a9d19e8ee878b6f830110d45e58c81b802185cadffb3e6fd7a6"
+    },
+    {
       "destination": "design/github/readme-banner-dark-1400x400.png",
       "destinationSha256": "2e2d369f585d1ca493f06f8e50d4e8d5136ac7b7ed30bce292d9fbc30539034b",
       "mode": "copy",
@@ -79,10 +149,10 @@
     }
   ],
   "brandVersion": "1.1.0",
-  "canonicalSourceCommit": "31d19c52a2565d0f4ba200ecde6be8b32af6b1f4",
-  "canonicalSourceDirty": true,
-  "contentSetSha256": "2c49649a5e1772d7c6c3961fc6c2fb7abd82d0cc33d56fdde45a397d53c4a225",
-  "generatorSha256": "0e6a2b10c9b320f5edb2c351e69d3aab55391d372a338dd62f792ce7f8974701",
+  "canonicalSourceCommit": "605cdbcb67e3e48a03618490de9e6ad80a4913bb",
+  "canonicalSourceDirty": false,
+  "contentSetSha256": "63759ec4ad7bac3faa9f26b9eebbb9370a2d1ac35d45a802961e2e12c1d87c3a",
+  "generatorSha256": "7657dd8c0fc936562f691ee8ce8152c52cff73cd8a194bbb83a6d1f3461d9a34",
   "lockSha256": "d8574f93ee9b99d1758cfbb20da047518e49df75c0cd8a5ac5697b397542a802",
   "project": "zest",
   "schemaVersion": 1,
