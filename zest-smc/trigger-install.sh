@@ -3,5 +3,7 @@
 # to /tmp/zest-install.log. Launched detached so nothing blocks; the dialog waits for you to
 # authenticate. Paths are derived at runtime, so no username is hardcoded.
 DIR="$(cd "$(dirname "$0")" && pwd)"
-osascript -e "do shell script \"/bin/bash '$DIR/install-helper.sh'\" with administrator privileges with prompt \"Zest needs your password once to enable the charge and Low Power Mode helper.\"" > /tmp/zest-install.log 2>&1
-echo "exit=$?" >> /tmp/zest-install.log
+LOG="$(mktemp -t zest-install)"   # unpredictable path: /tmp/<fixed name> could be symlink-planted
+osascript -e "do shell script \"/bin/bash '$DIR/install-helper.sh'\" with administrator privileges with prompt \"Zest needs your password once to enable the charge and Low Power Mode helper.\"" > "$LOG" 2>&1
+echo "exit=$?" >> "$LOG"
+echo "log: $LOG"

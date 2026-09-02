@@ -5,7 +5,10 @@
 set -euo pipefail
 
 LABEL="com.zest.app"
-APP_BIN="$HOME/Projects/zest/Zest.app/Contents/MacOS/Zest"
+# The built app sits beside this script's repo by default; override with
+# ZEST_APP=/path/to/Zest.app for an installed copy in /Applications.
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+APP_BIN="${ZEST_APP:-$REPO/Zest.app}/Contents/MacOS/Zest"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 if [ ! -x "$APP_BIN" ]; then
@@ -39,5 +42,5 @@ launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
 echo "Loaded $LABEL."
 echo "Zest now starts at login and relaunches within seconds if it ever quits."
-echo "To stop it deliberately: launchctl unload \"$PLIST\""
+echo "To stop it deliberately: launchctl unload \"$PLIST\"  (or run scripts/uninstall-launchagent.sh)"
 echo "The single-instance lock means this never creates a duplicate menu bar icon."

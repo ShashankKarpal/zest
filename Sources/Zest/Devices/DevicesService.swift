@@ -10,7 +10,12 @@ final class DevicesService: ObservableObject {
     @Published private(set) var devices: [AuxDevice] = []
 
     private var timer: Timer?
-    private let bleCachePath = NSString(string: "~/../tmp/ubersicht-ble-battery.json").expandingTildeInPath
+    // Optional cache written by the separate blebattery helper (ble-battery repo,
+    // OUTPUT_PATH in its main.swift). The old value "~/../tmp/..." expanded to
+    // /Users/tmp/..., so this feature had been silently dead (audit 2026-09-02).
+    // /tmp is world-writable, so the reader below only trusts a regular file
+    // owned by the current user.
+    private let bleCachePath = "/tmp/ubersicht-ble-battery.json"
     private let bleCacheTTL: TimeInterval = 900
 
     init() {
@@ -75,6 +80,8 @@ final class DevicesService: ObservableObject {
     // MARK: blebattery JSON cache (CoreBluetooth GATT 0x180F)
     private func bleCacheDevices() -> [AuxDevice] {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: bleCachePath),
+              (attrs[.type] as? FileAttributeType) == .typeRegular,
+              (attrs[.ownerAccountID] as? NSNumber)?.uint32Value == getuid(),
               let mod = attrs[.modificationDate] as? Date,
               Date().timeIntervalSince(mod) < bleCacheTTL,
               let data = FileManager.default.contents(atPath: bleCachePath),

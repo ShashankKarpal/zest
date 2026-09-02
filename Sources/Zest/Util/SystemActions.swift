@@ -49,7 +49,11 @@ enum MacAlertDismisser {
         }
     }
 
-    private static let keywords = ["battery", "charge", "low power", "plugged"]
+    // Exact macOS battery notification phrases only. The earlier list matched any
+    // notification containing "charge", which dismissed bank and receipt banners
+    // ("your card was charged") as a side effect (audit 2026-09-02).
+    private static let keywords = ["low battery", "battery low", "your mac will sleep soon",
+                                   "connected to power", "not charging", "low power mode"]
 
     static func dismissBatteryNotifications() {
         guard trusted() else { return }

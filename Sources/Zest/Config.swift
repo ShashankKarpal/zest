@@ -246,15 +246,25 @@ final class AppConfig: ObservableObject, Codable {
     static var fileURL: URL { dir.appendingPathComponent("config.json") }
 
     static func load() -> AppConfig {
-        guard let data = try? Data(contentsOf: fileURL),
-              let cfg = try? JSONDecoder().decode(AppConfig.self, from: data) else {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: fileURL.path) else {
             let fresh = AppConfig(); fresh.save(); return fresh
         }
-        return cfg
+        if let data = try? Data(contentsOf: fileURL),
+           let cfg = try? JSONDecoder().decode(AppConfig.self, from: data) {
+            return cfg
+        }
+        // The file exists but does not decode (partial write, hand edit). Keep it
+        // for the user instead of overwriting every alert and device with defaults.
+        let bad = fileURL.appendingPathExtension("bad")
+        try? fm.removeItem(at: bad)
+        try? fm.moveItem(at: fileURL, to: bad)
+        let fresh = AppConfig(); fresh.save(); return fresh
     }
 
     func save() {
         let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted]
-        if let data = try? enc.encode(self) { try? data.write(to: AppConfig.fileURL) }
+        // .atomic: a crash mid-write can no longer leave a truncated config.
+        if let data = try? enc.encode(self) { try? data.write(to: AppConfig.fileURL, options: .atomic) }
     }
 }

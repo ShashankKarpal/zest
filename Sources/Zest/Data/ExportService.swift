@@ -50,19 +50,23 @@ final class ExportService {
         return url
     }
 
+    private static func json<T>(_ v: T?) -> Any { v.map { $0 as Any } ?? NSNull() }
+
     @discardableResult
     func exportJSON() -> URL {
         let snap = battery.snapshot
         let payload: [String: Any] = [
             "generatedAt": ISO8601DateFormatter().string(from: Date()),
+            // Optionals are mapped to NSNull: `Optional.none as Any` is rejected by
+            // JSONSerialization and the export silently wrote nothing (audit 2026-09-02).
             "battery": [
                 "percent": snap.percent,
-                "maxCapacityPercent": snap.maxCapacityPercent as Any,
-                "cycleCount": snap.cycleCount as Any,
-                "temperatureC": snap.temperatureC as Any,
-                "condition": snap.condition as Any
+                "maxCapacityPercent": ExportService.json(snap.maxCapacityPercent),
+                "cycleCount": ExportService.json(snap.cycleCount),
+                "temperatureC": ExportService.json(snap.temperatureC),
+                "condition": ExportService.json(snap.condition)
             ],
-            "healthHistory": history.samples.map { ["day": $0.day, "maxCapacity": $0.maxCapacity as Any, "cycles": $0.cycles as Any, "tempC": $0.tempC as Any] },
+            "healthHistory": history.samples.map { ["day": $0.day, "maxCapacity": ExportService.json($0.maxCapacity), "cycles": ExportService.json($0.cycles), "tempC": ExportService.json($0.tempC)] },
             "energy24h": energy.window.last24h.map { ["app": $0.name, "msPerS": $0.value] }
         ]
         let url = ExportService.dir.appendingPathComponent("zest-export-\(stamp()).json")

@@ -15,7 +15,7 @@ if [ ! -d "$APP" ]; then
 fi
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-ZIP="/tmp/Zest-notarize.zip"
+ZIP="$(mktemp -d -t zest-notarize)/Zest-notarize.zip"   # unpredictable path, not a fixed /tmp name
 DIST="$ROOT/Zest-v${VERSION}-macOS.zip"
 
 echo "==> Zipping for submission"
