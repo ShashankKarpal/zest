@@ -10,6 +10,7 @@ All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 
 ## Unreleased
 
+- Energy history rolls hourly buckets older than seven days into UTC daily buckets (sums and sample counts add, so the 7d and 30d averages are unchanged; the 24 h sparkline keeps hourly resolution). The owner's file went from 4.6 MB (659 hourly buckets) to 1.6 MB (167 hourly plus 23 daily) with every sample accounted for.
 - Battery health shows the system thermal pressure (Nominal, Fair, Serious, Critical) from `ProcessInfo.thermalState`, pushed on change; the same signal the event log records as `thermal_state`.
 - SIGTERM (launchctl bootout, logout, shutdown) now runs the normal quit path, so the energy history tail is flushed and the `zest_stop` event is written; before, the process died without `applicationWillTerminate`.
 - `bash build.sh [release|debug] install` copies the finished bundle to `~/Applications/Zest.app` (or `ZEST_INSTALL_DIR`) with an atomic swap. Until now the only bundle was the in-tree build product, and `build.sh` begins by deleting it, so every rebuild removed the very file the LaunchAgent was running. `scripts/install-launchagent.sh` now prefers the installed copy, validates the plist, and reloads with bootout then bootstrap (the only sequence launchd accepts after the program changes).

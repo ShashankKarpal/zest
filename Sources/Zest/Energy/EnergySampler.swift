@@ -39,8 +39,15 @@ final class EnergySampler: ObservableObject {
     private var timer: Timer?
     private let historyURL = AppConfig.dir.appendingPathComponent("energy/history.json")
     private let metaURL = AppConfig.dir.appendingPathComponent("energy/meta.json")
-    private var hourly: [String: [String: Double]] = [:]   // hourKey -> app -> summed ms/s
+    private var hourly: [String: [String: Double]] = [:]   // hourKey -> app -> summed ms/s (last 7 days)
     private var hourlyCount: [String: Int] = [:]           // hourKey -> sample count
+    // Buckets older than 7 days are rolled up per UTC day (2026-09-05). Sums and sample
+    // counts are additive, so every average over a window is unchanged; only the hourly
+    // resolution beyond the 24 h sparkline's reach is dropped. Cuts the history file from
+    // 30 days x 24 hourly buckets to 7 days hourly plus 23 daily.
+    private var daily: [String: [String: Double]] = [:]    // dayKey -> app -> summed ms/s
+    private var dailyCount: [String: Int] = [:]            // dayKey -> sample count
+    static let hourlyRetention: TimeInterval = 7 * 86400
     private var firstTS: Double = 0
 
     // powermetrics summary rows are totals, not processes, so they are always excluded.
@@ -203,14 +210,27 @@ final class EnergySampler: ObservableObject {
         return w
     }
 
+    // Every bucket (hourly, then daily) whose span ends after `cutoff`.
+    private func buckets(since cutoff: Date) -> [(bucket: [String: Double], count: Int)] {
+        var out: [(bucket: [String: Double], count: Int)] = []
+        for (key, bucket) in hourly {
+            guard let d = dateFromHourKey(key), d >= cutoff else { continue }
+            out.append((bucket, hourlyCount[key] ?? 0))
+        }
+        for (key, bucket) in daily {
+            guard let d = TimeKeys.date(fromDayKey: key), d.addingTimeInterval(86400) > cutoff else { continue }
+            out.append((bucket, dailyCount[key] ?? 0))
+        }
+        return out
+    }
+
     // Average ms/s per app across the collected buckets in the window.
     private func average(hoursBack: Int) -> [AppEnergy] {
         let cutoff = Calendar.current.date(byAdding: .hour, value: -hoursBack, to: Date())!
         var sums: [String: Double] = [:]
         var samples = 0
-        for (key, bucket) in hourly {
-            guard let d = dateFromHourKey(key), d >= cutoff else { continue }
-            samples += hourlyCount[key] ?? 0
+        for (bucket, count) in buckets(since: cutoff) {
+            samples += count
             for (app, v) in bucket { sums[app, default: 0] += v }
         }
         guard samples > 0 else { return [] }
@@ -251,23 +271,46 @@ final class EnergySampler: ObservableObject {
     private func sevenDayAverage(_ app: String) -> Double {
         let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
         var sum = 0.0, samples = 0
-        for (key, bucket) in hourly {
-            guard let d = dateFromHourKey(key), d >= cutoff else { continue }
-            if let v = bucket[app] { sum += v; samples += hourlyCount[key] ?? 0 }
+        for (bucket, count) in buckets(since: cutoff) {
+            if let v = bucket[app] { sum += v; samples += count }
         }
         return samples > 0 ? sum / Double(samples) : 0
     }
 
+    // Roll hourly buckets older than `hourlyRetention` into their UTC day, then drop
+    // daily buckets older than 30 days. Pure, so the rollup is testable.
+    static func compact(hourly: [String: [String: Double]], counts: [String: Int],
+                        daily: [String: [String: Double]], dailyCounts: [String: Int], now: Date)
+        -> (hourly: [String: [String: Double]], counts: [String: Int], daily: [String: [String: Double]], dailyCounts: [String: Int]) {
+        var h = hourly, c = counts, d = daily, dc = dailyCounts
+        let hourlyCutoff = now.addingTimeInterval(-hourlyRetention)
+        for (key, bucket) in hourly {
+            guard let start = TimeKeys.date(fromHourKey: key) else { h[key] = nil; c[key] = nil; continue }
+            guard start < hourlyCutoff else { continue }
+            let dayKey = TimeKeys.dayKey(start)
+            var merged = d[dayKey] ?? [:]
+            for (app, v) in bucket { merged[app, default: 0] += v }
+            d[dayKey] = merged
+            dc[dayKey, default: 0] += c[key] ?? 0
+            h[key] = nil; c[key] = nil
+        }
+        let dailyCutoff = now.addingTimeInterval(-30 * 86400)
+        for key in d.keys {
+            guard let start = TimeKeys.date(fromDayKey: key), start.addingTimeInterval(86400) > dailyCutoff else {
+                d[key] = nil; dc[key] = nil; continue
+            }
+        }
+        return (h, c, d, dc)
+    }
+
     private func prune() {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
-        let keep = Set(hourly.keys.filter { dateFromHourKey($0).map { $0 >= cutoff } ?? false })
-        hourly = hourly.filter { keep.contains($0.key) }
-        hourlyCount = hourlyCount.filter { keep.contains($0.key) }
-        hourKeyDates = hourKeyDates.filter { keep.contains($0.key) }
+        let r = Self.compact(hourly: hourly, counts: hourlyCount, daily: daily, dailyCounts: dailyCount, now: Date())
+        hourly = r.hourly; hourlyCount = r.counts; daily = r.daily; dailyCount = r.dailyCounts
+        hourKeyDates = hourKeyDates.filter { hourly[$0.key] != nil }
     }
     private func saveHistory() {
         try? FileManager.default.createDirectory(at: historyURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let payload: [String: Any] = ["hourly": hourly, "counts": hourlyCount]
+        let payload: [String: Any] = ["hourly": hourly, "counts": hourlyCount, "daily": daily, "dailyCounts": dailyCount]
         if let data = try? JSONSerialization.data(withJSONObject: payload) { try? data.write(to: historyURL, options: .atomic) }
     }
     private func saveMeta() {
@@ -278,6 +321,8 @@ final class EnergySampler: ObservableObject {
         if let data = try? Data(contentsOf: historyURL), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             hourly = (obj["hourly"] as? [String: [String: Double]]) ?? [:]
             hourlyCount = (obj["counts"] as? [String: Int]) ?? [:]
+            daily = (obj["daily"] as? [String: [String: Double]]) ?? [:]
+            dailyCount = (obj["dailyCounts"] as? [String: Int]) ?? [:]
         }
         var keyZone: String? = nil
         if let data = try? Data(contentsOf: metaURL), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -296,6 +341,13 @@ final class EnergySampler: ObservableObject {
             NSLog("Zest: energy history re-keyed from \(TimeZone.current.identifier) to UTC (\(hourly.count) buckets)")
         } else if keyZone != Self.keyZoneTag {
             saveMeta()
+        }
+        // First compaction of a pre-rollup history happens here; later ones run hourly.
+        let before = hourly.count
+        prune(); lastPrune = Date()
+        if hourly.count != before {
+            saveHistory()
+            NSLog("Zest: energy history compacted: \(before) hourly buckets to \(hourly.count) hourly plus \(daily.count) daily")
         }
     }
 }
