@@ -8,6 +8,13 @@ let package = Package(
         .executableTarget(
             name: "Zest",
             path: "Sources/Zest"
+        ),
+        // Unit tests over the pure logic (config decoding, panel gating, battery math,
+        // health projection). `swift test` from the repo root; CI runs the same.
+        .testTarget(
+            name: "ZestTests",
+            dependencies: ["Zest"],
+            path: "Tests/ZestTests"
         )
     ]
 )

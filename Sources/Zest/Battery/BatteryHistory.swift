@@ -37,7 +37,10 @@ final class BatteryHistory: ObservableObject {
     }
 
     // Estimated cycles/month and a simple linear projection of when capacity hits 80%.
-    var projection: (perMonthCycles: Double?, monthsTo80: Int?) {
+    var projection: (perMonthCycles: Double?, monthsTo80: Int?) { Self.projection(of: samples) }
+
+    // Pure function over a sample series so it can be tested without touching disk.
+    static func projection(of samples: [Sample]) -> (perMonthCycles: Double?, monthsTo80: Int?) {
         let capPoints = samples.compactMap { s -> (Double, Double)? in
             guard let c = s.maxCapacity else { return nil }
             return (s.ts, Double(c))

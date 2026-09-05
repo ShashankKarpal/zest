@@ -135,7 +135,7 @@ cd zest
 open Zest.app
 ```
 
-Unsigned builds are ad hoc signed and run fine on your own machine. To sign with your own Developer ID, set `ZEST_SIGN_IDENTITY` before building.
+Unsigned builds are ad hoc signed and run fine on your own machine. To sign with your own Developer ID, set `ZEST_SIGN_IDENTITY` before building. `swift test` runs the unit tests; the `build` workflow runs them and a release build on every push.
 
 Autostart:
 
@@ -167,6 +167,7 @@ Each of these is off until granted, and each is a deliberate choice.
 
 ```
 Sources/Zest/       app: menu bar, alerts, battery, energy, devices, UI
+Tests/ZestTests/    unit tests (swift test); CI runs them plus a release build
 zest-smc/           privileged helper and its installer
 scripts/            LaunchAgent installer and uninstaller
 panels/             widget extraction (generated pipelines are gitignored)

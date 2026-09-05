@@ -1,0 +1,25 @@
+name: build
+# Build smoke and unit tests on every push and pull request. Catches a broken
+# build.sh or Package.swift without a local build; gitleaks stays in its own workflow.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Toolchain
+        run: swift --version && xcodebuild -version
+      - name: Unit tests
+        run: swift test
+      - name: Release build and app assembly (ad hoc signed)
+        run: |
+          bash build.sh release
+          test -x Zest.app/Contents/MacOS/Zest
+          test -f Zest.app/Contents/Resources/AppIcon.icns
+          plutil -lint Zest.app/Contents/Info.plist
+          codesign --verify --verbose=2 Zest.app
