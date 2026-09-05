@@ -38,8 +38,10 @@
 
 - **iPhone-style battery pill** with the percent inside and a charging bolt on adapter.
 - **Display options:** time remaining instead of percent, colors on or off, hide the number, dark glyph for light menu bars.
-- **Optional panel readout** in the menu bar, pulled from one of your embedded panels.
+- **Optional panel readout** in the menu bar, pulled from one of your embedded panels (only when panels are configured, see Configuration).
+- **Low Power Mode** state and toggle in the dropdown (toggle needs the optional helper).
 - **Scrollable dropdown:** battery, charge state, power flow, health, devices, and the significant-energy list.
+- **Command Center window** with Battery, Energy, Devices, Ecosystem, iOS Health, Digest and Alerts sections.
 
 ### Alerts
 
@@ -100,10 +102,12 @@
 
 ## Stack
 
-- App: Swift, SwiftUI, AppKit
+- App: Swift, SwiftUI, AppKit; Swift Package, no Xcode project
+- Battery data: IOKit power sources and the IORegistry, with system_profiler for the health condition
+- Energy data: powermetrics (with the helper) or a ps-based estimate
 - Privileged helper: Swift, installed to a root-owned path
-- Energy data: powermetrics
 - Optional inference: LM Studio on localhost
+- Tests: XCTest (`swift test`), run by CI with a release build on every push
 
 ## Install
 
@@ -111,7 +115,7 @@
 
 Download `Zest-v3.0-macOS.zip` from [Releases](https://github.com/ShashankKarpal/zest/releases/latest), unzip, and move `Zest.app` to `/Applications`.
 
-Signed with an Apple Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. No Xcode required.
+Signed with an Apple Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. No Xcode required. The v3.0 download is from July 2026; everything listed under Unreleased in [CHANGELOG.md](CHANGELOG.md) (alert history, event log, thermal readout, the energy pass, the widget panel gate) is on `main` and in the build-from-source path until v3.1 is notarized.
 
 **Optional root helper (per-app energy and the Low Power Mode toggle):** the app itself never asks for a password. Those two features need `powermetrics`, which macOS only lets root run, so they stay off until you install the small helper yourself from a clone of this repo:
 
@@ -152,7 +156,7 @@ After every `build.sh install`, reload the agent so it runs the new build: `laun
 
 ## Configuration
 
-Settings live in `~/Library/Application Support/Zest/config.json`, created on first launch and never committed. Energy history, health history, and exports live in the same folder. History keys are UTC, so a timezone change never shifts a bucket.
+Settings live in `~/Library/Application Support/Zest/config.json`, created on first launch and never committed. Energy history (`energy/`, hourly for seven days then daily, UTC keys), health history, alert history and exports live in the same folder. History keys are UTC, so a timezone change never shifts a bucket.
 
 **Event log** (`eventLogDir`, Settings > General): when set, Zest appends `zest-events.jsonl` in that folder, one line per event such as `{"ts":"2026-09-05T04:47:51Z","source":"zest","host":"...","event":"plugged_in","percent":40,"adapterWatts":96}`. Events: `plugged_in`, `unplugged`, `fully_charged`, `charge_cycle` (cycles, maxCapacityPercent), `battery_temp` (level normal / warm / hot, tempC), `low_power_mode` (on), `thermal_state` (nominal / fair / serious / critical), `zest_start`, `zest_stop` (version). At most one line per event type per minute; the file rotates at 1 MB keeping one previous generation.
 
@@ -170,23 +174,25 @@ Each of these is off until granted, and each is a deliberate choice.
 1. Quit Zest and delete `Zest.app` (`/Applications` for the release download, `~/Applications` for `build.sh install`).
 2. If you installed the LaunchAgent: `bash scripts/uninstall-launchagent.sh` (otherwise a KeepAlive job would keep relaunching a missing app).
 3. If you installed the root helper: `sudo bash zest-smc/uninstall-helper.sh` removes the sudoers entry and the helper.
-4. App data (config, battery history, energy samples, exports) is in `~/Library/Application Support/Zest`; delete it if you want a clean slate.
+4. App data (config, battery history, energy samples, alert history, exports, and the event log folder if you kept the default) is in `~/Library/Application Support/Zest`; delete it if you want a clean slate.
 
 ## Project structure
 
 ```
-Sources/Zest/       app: menu bar, alerts, battery, energy, devices, UI
+Sources/Zest/       app: menu bar, alerts, battery, energy, devices, data (event log, exports), UI
 Tests/ZestTests/    unit tests (swift test); CI runs them plus a release build
 zest-smc/           privileged helper and its installer
 scripts/            LaunchAgent installer and uninstaller
 panels/             widget extraction (generated pipelines are gitignored)
 design/             brand assets, tokens, BRAND.md
 docs/               screenshots
+build.sh            build, assemble, sign; `install` copies to ~/Applications
+notarize.sh         notarize, staple and zip a release build
 ```
 
 ## Privacy
 
-Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for two fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Ubersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings.
+Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for two fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Ubersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings. The optional event log writes a plain text file to a folder you choose and nowhere else.
 
 ## License
 
