@@ -135,17 +135,19 @@ Requires Xcode Command Line Tools.
 ```bash
 git clone https://github.com/ShashankKarpal/zest.git
 cd zest
-./build.sh
-open Zest.app
+bash build.sh release install
+open ~/Applications/Zest.app
 ```
 
-Unsigned builds are ad hoc signed and run fine on your own machine. To sign with your own Developer ID, set `ZEST_SIGN_IDENTITY` before building. `swift test` runs the unit tests; the `build` workflow runs them and a release build on every push.
+`build.sh` assembles `Zest.app` inside the checkout; `install` copies it to `~/Applications` with an atomic swap (`ZEST_INSTALL_DIR` to choose another folder). Run the installed copy, not the in-tree one: the next build deletes and recreates the in-tree bundle. Unsigned builds are ad hoc signed and run fine on your own machine. To sign with your own Developer ID, set `ZEST_SIGN_IDENTITY` before building. `swift test` runs the unit tests; the `build` workflow runs them and a release build on every push.
 
-Autostart:
+Autostart (points launchd at `~/Applications/Zest.app` when it exists):
 
 ```bash
-./scripts/install-launchagent.sh
+bash scripts/install-launchagent.sh
 ```
+
+After every `build.sh install`, reload the agent so it runs the new build: `launchctl bootout gui/$(id -u)/com.zest.app; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zest.app.plist` (launchd pins the program's code identity, so `kickstart -k` refuses a rebuilt binary). `scripts/install-launchagent.sh` does exactly that, so re-running it is the simplest reload.
 
 ## Configuration
 
@@ -164,7 +166,7 @@ Each of these is off until granted, and each is a deliberate choice.
 
 ## Uninstall
 
-1. Quit Zest and delete `Zest.app`.
+1. Quit Zest and delete `Zest.app` (`/Applications` for the release download, `~/Applications` for `build.sh install`).
 2. If you installed the LaunchAgent: `bash scripts/uninstall-launchagent.sh` (otherwise a KeepAlive job would keep relaunching a missing app).
 3. If you installed the root helper: `sudo bash zest-smc/uninstall-helper.sh` removes the sudoers entry and the helper.
 4. App data (config, battery history, energy samples, exports) is in `~/Library/Application Support/Zest`; delete it if you want a clean slate.
