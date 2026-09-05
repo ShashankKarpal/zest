@@ -41,7 +41,8 @@ final class PresenceService: ObservableObject {
     }
 
     private func scanBluetooth() -> [BTDevice] {
-        guard let obj = Shell.runJSON("/usr/sbin/system_profiler SPBluetoothDataType -json", timeout: 15),
+        // Shared with DevicesService: one system_profiler run per 30 s, not two.
+        guard let obj = BluetoothInventory.shared.snapshot(),
               let controllers = obj["SPBluetoothDataType"] as? [[String: Any]] else { return [] }
         var out: [BTDevice] = []
         for controller in controllers {

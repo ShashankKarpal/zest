@@ -4,16 +4,19 @@ import IOKit
 import IOKit.ps
 
 // Reads the internal battery via IOKit power sources (fast, push-notified) and the
-// IORegistry AppleSmartBattery entry (detail keys). Health (cycles, capacity, condition)
-// comes from system_profiler, cached for an hour to keep it cheap. Event-driven so idle
-// CPU stays negligible, matching the native app's design goal.
+// IORegistry AppleSmartBattery entry (detail keys, and since 2026-09-05 also cycle count
+// and maximum capacity, which the registry carries directly). Only the Condition string
+// still comes from system_profiler, refreshed at most hourly and always off the main
+// thread; the old code ran that 2 to 12 s command synchronously inside refresh() on the
+// main thread (audit Z-B2). Event-driven so idle CPU stays negligible.
 final class BatteryService: ObservableObject {
     @Published private(set) var snapshot = BatterySnapshot()
 
     private var runLoopSource: CFRunLoopSource?
     private var pollTimer: Timer?
-    private var healthCache: (cycles: Int?, maxCap: Int?, condition: String?)?
-    private var healthCacheTime: Date = .distantPast
+    private var conditionTime: Date = .distantPast
+    private var conditionInFlight = false
+    private var lastRegistry: [String: Any] = [:]
 
     init() {
         refresh()
@@ -82,6 +85,7 @@ final class BatteryService: ObservableObject {
         var props: Unmanaged<CFMutableDictionary>?
         guard IORegistryEntryCreateCFProperties(entry, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
               let dict = props?.takeRetainedValue() as? [String: Any] else { return }
+        lastRegistry = dict
 
         if let t = dict["Temperature"] as? Int { snap.temperatureC = Double(t) / 100.0 }
         if let v = dict["Voltage"] as? Int { snap.voltageV = Double(v) / 1000.0 }
@@ -107,32 +111,69 @@ final class BatteryService: ObservableObject {
         return raw
     }
 
-    // MARK: Health via system_profiler (cached 1h)
+    // MARK: Health
+    // Cycle count comes from the registry dictionary read above, on every refresh (it is
+    // the same number system_profiler prints). Maximum Capacity and Condition still come
+    // from system_profiler: the registry has no key that reproduces Apple's displayed
+    // percentage (on the 2026-09-05 M4 Pro it showed 99 while AppleRawMaxCapacity/Design
+    // gave 96 and NominalChargeCapacity/Design gave 98), and Condition has no registry
+    // equivalent at all. What changed: that command now runs hourly OFF the main thread
+    // (it took 2 to 12 s inside refresh() on the main thread before, audit Z-B2), and until
+    // its first result lands the snapshot carries the registry ratio as a fallback.
     private func readHealth(into snap: inout BatterySnapshot) {
-        if healthCache == nil || Date().timeIntervalSince(healthCacheTime) > 3600 {
+        let reg = Self.health(fromRegistry: lastRegistry)
+        snap.cycleCount = reg.cycles
+        snap.maxCapacityPercent = profiler?.maxCap ?? reg.maxCap
+        snap.condition = profiler?.condition
+        refreshProfilerIfStale()
+    }
+
+    struct Health: Equatable {
+        var cycles: Int?
+        var maxCap: Int?
+        var condition: String?
+    }
+
+    // Registry-only view: exact cycle count, capacity as a raw/design fallback ratio.
+    static func health(fromRegistry dict: [String: Any]) -> Health {
+        let cycles = dict["CycleCount"] as? Int
+        var maxCap: Int? = nil
+        if let d = dict["DesignCapacity"] as? Int, let m = dict["AppleRawMaxCapacity"] as? Int, d > 0 {
+            maxCap = Int((Double(m) / Double(d) * 100).rounded())
+        }
+        return Health(cycles: cycles, maxCap: maxCap, condition: nil)
+    }
+
+    // system_profiler SPPowerDataType text view.
+    static func health(fromProfilerText text: String) -> Health {
+        Health(cycles: firstMatch(text, #"Cycle Count:\s*(\d+)"#).flatMap { Int($0) },
+               maxCap: firstMatch(text, #"Maximum Capacity:\s*(\d+)%"#).flatMap { Int($0) },
+               condition: firstMatch(text, #"Condition:\s*([A-Za-z ]+?)\s*$"#, options: .anchorsMatchLines))
+    }
+
+    private var profiler: Health?
+    private func refreshProfilerIfStale() {
+        guard !conditionInFlight, Date().timeIntervalSince(conditionTime) > 3600 else { return }
+        conditionInFlight = true
+        DispatchQueue.global(qos: .utility).async {
             let out = Shell.run("/usr/sbin/system_profiler SPPowerDataType", timeout: 12)
-            let cyc = firstMatch(out, #"Cycle Count:\s*(\d+)"#).flatMap { Int($0) }
-            let cap = firstMatch(out, #"Maximum Capacity:\s*(\d+)%"#).flatMap { Int($0) }
-            let cond = firstMatch(out, #"Condition:\s*(\w+)"#)
-            healthCache = (cyc, cap, cond)
-            healthCacheTime = Date()
-        }
-        if let h = healthCache {
-            snap.cycleCount = h.cycles
-            snap.maxCapacityPercent = h.maxCap
-            snap.condition = h.condition
-        }
-        // Fallback capacity from raw values if system_profiler was unavailable.
-        if snap.maxCapacityPercent == nil, let d = snap.designCapacityMAh, let m = snap.rawMaxCapacityMAh, d > 0 {
-            snap.maxCapacityPercent = Int((Double(m) / Double(d) * 100).rounded())
+            let h = Self.health(fromProfilerText: out)
+            DispatchQueue.main.async {
+                self.conditionInFlight = false
+                self.conditionTime = Date()
+                // A failed run (empty output) keeps the previous values rather than blanking them.
+                guard h.maxCap != nil || h.condition != nil else { return }
+                if h != self.profiler { self.profiler = h; self.refresh() }
+            }
         }
     }
 
-    private func firstMatch(_ text: String, _ pattern: String) -> String? {
-        guard let re = try? NSRegularExpression(pattern: pattern) else { return nil }
+    private static func firstMatch(_ text: String, _ pattern: String, options: NSRegularExpression.Options = []) -> String? {
+        guard let re = try? NSRegularExpression(pattern: pattern, options: options) else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         guard let m = re.firstMatch(in: text, range: range), m.numberOfRanges > 1,
               let r = Range(m.range(at: 1), in: text) else { return nil }
         return String(text[r])
     }
+
 }

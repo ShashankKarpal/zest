@@ -47,9 +47,9 @@ final class DevicesService: ObservableObject {
         }
     }
 
-    // MARK: system_profiler SPBluetoothDataType
+    // MARK: system_profiler SPBluetoothDataType (shared snapshot, see BluetoothInventory)
     private func bluetoothDevices() -> [AuxDevice] {
-        guard let obj = Shell.runJSON("/usr/sbin/system_profiler SPBluetoothDataType -json", timeout: 15) else { return [] }
+        guard let obj = BluetoothInventory.shared.snapshot() else { return [] }
         var found: [AuxDevice] = []
         func level(_ v: Any?) -> Int? {
             guard let s = v as? String else { return v as? Int }

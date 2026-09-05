@@ -17,6 +17,17 @@ final class WidgetPanelRunner: ObservableObject {
     private(set) var scriptPath: String?
     private var timer: Timer?
     private var started = false
+    private var inFlight = false   // main-thread only
+
+    // Demand-driven since 2026-09-05: a panel script only runs while something shows its
+    // output (the Command Center window, or the menu bar readout for the account panels).
+    // Before, all four ran forever from launch; on the owner's Mac the 5 s System Vitals
+    // script took longer than 5 s, so it was running 98 percent of the time, and Zest spent
+    // 4 percent of a core on panels nobody was looking at. Turning demand on refreshes
+    // immediately so an opened window fills within one script run.
+    var demanded = true {
+        didSet { if demanded && !oldValue && started { refresh() } }
+    }
 
     init(scriptName: String, interval: TimeInterval, root: String?) {
         self.scriptName = scriptName
@@ -51,25 +62,26 @@ final class WidgetPanelRunner: ObservableObject {
     deinit { timer?.invalidate() }
 
     func refresh() {
-        guard let path = scriptPath else { return }
+        guard let path = scriptPath, demanded, !inFlight else { return }
         // Only a regular file is worth a bash spawn; a missing or moved folder stays silent
         // instead of failing four times a cycle.
         guard FileManager.default.isReadableFile(atPath: path) else {
             DispatchQueue.main.async { self.raw = "Panel script not found: \(path)" }
             return
         }
+        // One run at a time: a script slower than its interval used to pile up on itself.
+        inFlight = true
         DispatchQueue.global(qos: .utility).async {
             let out = Shell.run("/bin/bash \(self.q(path))", timeout: 30)
             let trimmed = out.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let data = trimmed.data(using: .utf8),
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                DispatchQueue.main.async { self.raw = trimmed }
-                return
-            }
             DispatchQueue.main.async {
-                self.json = obj
+                self.inFlight = false
+                if let data = trimmed.data(using: .utf8),
+                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    self.json = obj
+                    self.lastUpdated = Date()
+                }
                 self.raw = trimmed
-                self.lastUpdated = Date()
             }
         }
     }

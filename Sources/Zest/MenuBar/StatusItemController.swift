@@ -24,7 +24,7 @@ final class StatusItemController {
             DropdownView(state: state,
                          openCommandCenter: { [weak self] in self?.showCommandCenter() },
                          openSettings: { [weak self] in self?.showSettings() },
-                         toggleLowPowerMode: { LowPowerMode.toggle() })
+                         toggleLowPowerMode: { [weak state] in state?.chargeLimiter.toggleLowPower() })
         )
         redrawIcon()
 
@@ -75,10 +75,15 @@ final class StatusItemController {
                                  content: CommandCenterView(state: state),
                                  size: NSSize(width: 760, height: 660))
             commandCenter = win
+            // Panel scripts run only while this window is open.
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: win, queue: .main) { [weak self] _ in
+                self?.state.commandCenterVisible = false
+            }
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         commandCenter?.makeKeyAndOrderFront(nil)
+        state.commandCenterVisible = true
     }
 
     func showSettings() {

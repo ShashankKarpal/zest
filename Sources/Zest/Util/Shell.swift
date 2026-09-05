@@ -12,22 +12,40 @@ enum Shell {
         let out = Pipe()
         p.standardOutput = out
         p.standardError = Pipe()
+
+        // Block on semaphores instead of polling: the old loop woke every 20 ms for the
+        // whole life of the child, which for a 3 s panel script was 150 wakeups per run.
+        let exited = DispatchSemaphore(value: 0)
+        let drained = DispatchSemaphore(value: 0)
+        p.terminationHandler = { _ in exited.signal() }
         do { try p.run() } catch { return "" }
 
-        let deadline = Date().addingTimeInterval(timeout)
+        let box = OutputBox()
         let handle = out.fileHandleForReading
-        var data = Data()
-        // Read incrementally so a slow command cannot deadlock the pipe buffer.
-        DispatchQueue.global().async {
-            data = handle.readDataToEndOfFile()
+        // Read to EOF on a background thread so a chatty child can never fill the pipe
+        // buffer and deadlock against our wait.
+        DispatchQueue.global(qos: .utility).async {
+            box.set(handle.readDataToEndOfFile())
+            drained.signal()
         }
-        while p.isRunning && Date() < deadline { usleep(20_000) }
-        if p.isRunning { p.terminate() }
-        p.waitUntilExit()
-        // Give the async reader a moment to finish draining.
-        var waited = 0
-        while data.isEmpty && waited < 50 { usleep(10_000); waited += 1 }
-        return String(data: data, encoding: .utf8) ?? ""
+
+        if exited.wait(timeout: .now() + timeout) == .timedOut {
+            p.terminate()
+            // Give the child a moment to die; SIGKILL if it ignores SIGTERM.
+            if exited.wait(timeout: .now() + 2) == .timedOut { kill(p.processIdentifier, SIGKILL); _ = exited.wait(timeout: .now() + 2) }
+        }
+        // EOF arrives when every writer closes; a grandchild holding the pipe open would
+        // otherwise pin us here, so cap the drain wait like the old code did. If the drain
+        // has not finished, the box is still empty and we return "" rather than racing it.
+        _ = drained.wait(timeout: .now() + 1)
+        return String(data: box.get(), encoding: .utf8) ?? ""
+    }
+
+    private final class OutputBox {
+        private var data = Data()
+        private let lock = NSLock()
+        func set(_ d: Data) { lock.lock(); data = d; lock.unlock() }
+        func get() -> Data { lock.lock(); defer { lock.unlock() }; return data }
     }
 
     // Runs a command and returns parsed JSON as a dictionary, or nil.

@@ -53,7 +53,7 @@ struct SettingsView: View {
                 Divider1()
                 SectionHead(label: "PANEL READOUT IN MENU BAR")
                 Text("Optionally show a percent from one of your account panels next to the battery icon.").font(.system(size: 10)).foregroundColor(Theme.faint)
-                Picker("Show", selection: Binding(get: { config.menuBar.claudeMode }, set: { config.menuBar.claudeMode = $0; save() })) {
+                Picker("Show", selection: Binding(get: { config.menuBar.claudeMode }, set: { config.menuBar.claudeMode = $0; save(); state.updatePanelDemand() })) {
                     ForEach(MenuBarClaudeMode.allCases, id: \.self) { Text($0.label).tag($0) }
                 }.pickerStyle(.menu).frame(maxWidth: 260, alignment: .leading)
             }

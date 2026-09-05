@@ -70,6 +70,18 @@ final class AppState: ObservableObject {
     var panelRunners: [WidgetPanelRunner] { [account1, account2, vitals, claudeCode] }
     var panelsEnabled: Bool { config.panelsEnabled }
 
+    // True while the Command Center window is on screen; the panel scripts only run
+    // while something displays their output (see WidgetPanelRunner.demanded).
+    var commandCenterVisible = false { didSet { updatePanelDemand() } }
+
+    func updatePanelDemand() {
+        let mode = config.menuBar.claudeMode
+        account1.demanded = commandCenterVisible || (mode != .off && !mode.usesAcct2)
+        account2.demanded = commandCenterVisible || (mode != .off && mode.usesAcct2)
+        vitals.demanded = commandCenterVisible
+        claudeCode.demanded = commandCenterVisible
+    }
+
     // Called after the user changes the panels folder in Settings. Also drops the menu
     // bar Claude readout when the panels that feed it are switched off.
     func panelsRootChanged() {
@@ -78,10 +90,12 @@ final class AppState: ObservableObject {
         if !config.panelsEnabled && config.menuBar.claudeMode != .off {
             config.menuBar.claudeMode = .off
         }
+        updatePanelDemand()
         objectWillChange.send()
     }
 
     func startPanels() {
+        updatePanelDemand()
         panelRunners.forEach { $0.start() }
         // Auto-dismiss the default macOS battery notifications when enabled and trusted.
         autoDismissTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -92,6 +106,7 @@ final class AppState: ObservableObject {
 
     func shutdown() {
         chargeLimiter.restoreDefaults()
+        energy.flush()
         config.save()
     }
 }

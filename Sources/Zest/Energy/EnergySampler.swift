@@ -64,6 +64,13 @@ final class EnergySampler: ObservableObject {
         return name
     }
 
+    // All sampling and every touch of `hourly` / `hourlyCount` happen on this one serial
+    // queue. The old code dispatched each tick to the global pool, so a powermetrics run
+    // that outlived the 12 s interval overlapped the next tick and both mutated the history
+    // dictionaries at once (audit Z-B4).
+    private let sampleQueue = DispatchQueue(label: "com.shanky.zest.energy-sampler", qos: .utility)
+    private var inFlight = false   // main-thread only
+
     init() {
         loadHistory()
         sample()
@@ -72,11 +79,14 @@ final class EnergySampler: ObservableObject {
     deinit { timer?.invalidate() }
 
     private func sample() {
-        DispatchQueue.global(qos: .utility).async {
+        // Skip a tick rather than queue up behind a slow one; the next tick catches up.
+        guard !inFlight else { return }
+        inFlight = true
+        sampleQueue.async {
             let (live, pm) = self.readLiveEnergy()
             self.recordHistory(live)
             let win = self.buildWindows(live)
-            DispatchQueue.main.async { self.window = win; self.usingPowermetrics = pm }
+            DispatchQueue.main.async { self.window = win; self.usingPowermetrics = pm; self.inFlight = false }
         }
     }
 
@@ -125,11 +135,25 @@ final class EnergySampler: ObservableObject {
         return (comm as NSString).lastPathComponent
     }
 
-    private func hourKey(_ date: Date = Date()) -> String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HH"; return f.string(from: date)
-    }
+    // One formatter and a parsed-key cache, both confined to sampleQueue. The old code built
+    // a fresh DateFormatter for every bucket on every pass (three window averages, a
+    // seven-day average per live app, and the prune: roughly 8,600 formatter allocations
+    // per 12 s tick over a 30-day history), which with the 4.6 MB history rewrite below was
+    // most of Zest's idle CPU.
+    private let hourFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HH"; return f
+    }()
+    private var hourKeyDates: [String: Date] = [:]
+    private var lastSave: Date = .distantPast
+    private var lastPrune: Date = .distantPast
+    private let saveInterval: TimeInterval = 300
+
+    private func hourKey(_ date: Date = Date()) -> String { hourFormatter.string(from: date) }
     private func dateFromHourKey(_ key: String) -> Date? {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HH"; return f.date(from: key)
+        if let d = hourKeyDates[key] { return d }
+        guard let d = hourFormatter.date(from: key) else { return nil }
+        hourKeyDates[key] = d
+        return d
     }
 
     private func recordHistory(_ live: [String: Double]) {
@@ -139,8 +163,14 @@ final class EnergySampler: ObservableObject {
         for (app, v) in live { bucket[app, default: 0] += v }
         hourly[key] = bucket
         hourlyCount[key, default: 0] += 1
-        pruneAndSave()
+        // Prune hourly and persist every five minutes instead of rewriting the multi-MB
+        // history file on every 12 s tick; shutdown() flushes the tail.
+        if Date().timeIntervalSince(lastPrune) > 3600 { prune(); lastPrune = Date() }
+        if Date().timeIntervalSince(lastSave) > saveInterval { saveHistory(); lastSave = Date() }
     }
+
+    // Called from AppState.shutdown() so the last few minutes survive a quit.
+    func flush() { sampleQueue.sync { saveHistory() } }
 
     private func buildWindows(_ live: [String: Double]) -> Window {
         var w = Window()
@@ -213,14 +243,17 @@ final class EnergySampler: ObservableObject {
         return samples > 0 ? sum / Double(samples) : 0
     }
 
-    private func pruneAndSave() {
+    private func prune() {
         let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
         let keep = Set(hourly.keys.filter { dateFromHourKey($0).map { $0 >= cutoff } ?? false })
         hourly = hourly.filter { keep.contains($0.key) }
         hourlyCount = hourlyCount.filter { keep.contains($0.key) }
+        hourKeyDates = hourKeyDates.filter { keep.contains($0.key) }
+    }
+    private func saveHistory() {
         try? FileManager.default.createDirectory(at: historyURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let payload: [String: Any] = ["hourly": hourly, "counts": hourlyCount]
-        if let data = try? JSONSerialization.data(withJSONObject: payload) { try? data.write(to: historyURL) }
+        if let data = try? JSONSerialization.data(withJSONObject: payload) { try? data.write(to: historyURL, options: .atomic) }
     }
     private func saveMeta() {
         if let data = try? JSONSerialization.data(withJSONObject: ["firstTS": firstTS]) { try? data.write(to: metaURL) }

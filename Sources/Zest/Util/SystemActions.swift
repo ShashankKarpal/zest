@@ -16,19 +16,23 @@ enum LoginItem {
     static var isEnabled: Bool { SMAppService.mainApp.status == .enabled }
 }
 
-// Low Power Mode toggle. `pmset -a lowpowermode` needs root; this uses the same zest-smc
-// sudoers path. Returns whether it appeared to succeed. FLAGGED: no-op without the grant.
+// Low Power Mode. Reading the state is a ProcessInfo call (no shell; the old
+// `pmset -g | grep powermode` ran on the main thread inside a SwiftUI body on every redraw,
+// and on current macOS `pmset -g` no longer prints that key at all, so it always read Off).
+// Changes arrive through NSProcessInfoPowerStateDidChange; ChargeLimiter republishes them.
+// Toggling still needs root (`pmset -a lowpowermode`) through the zest-smc sudoers path and
+// runs off the main thread. No-op without the grant.
 enum LowPowerMode {
-    static func current() -> Bool {
-        let out = Shell.run("/usr/bin/pmset -g | /usr/bin/grep -i powermode", timeout: 4)
-        return out.contains("1")
-    }
-    @discardableResult
-    static func toggle() -> Bool {
-        guard let helper = ZestHelper.path else { return false }
+    static func current() -> Bool { ProcessInfo.processInfo.isLowPowerModeEnabled }
+
+    static func toggle(completion: ((Bool) -> Void)? = nil) {
+        guard let helper = ZestHelper.path else { completion?(false); return }
         let target = current() ? "0" : "1"
-        let out = Shell.run("sudo -n \(ZestHelper.quote(helper)) lowpowermode \(target) 2>&1", timeout: 4)
-        return out.contains("ok")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let out = Shell.run("sudo -n \(ZestHelper.quote(helper)) lowpowermode \(target) 2>&1", timeout: 4)
+            let ok = out.contains("ok")
+            DispatchQueue.main.async { completion?(ok) }
+        }
     }
 }
 

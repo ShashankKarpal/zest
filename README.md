@@ -147,7 +147,7 @@ Autostart:
 
 Settings live in `~/Library/Application Support/Zest/config.json`, created on first launch and never committed. Energy history, health history, and exports live in the same folder.
 
-**Widget panels are off by default.** The four extra Command Center sections (two account panels, System Vitals, Claude Code) only appear after you point Zest at a folder of panel scripts in Settings > General > Widget panels. Until then Zest never runs a script, and the menu bar readout picker that depends on them is hidden. To build that folder: copy `panels/panels.example.json` to `panels/panels.local.json` (gitignored, machine-specific), edit the widget paths to match your own Ubersicht setup, run `panels/extract-panels.py`, then choose the `panels/` folder in Settings. The scripts run under your account exactly as extracted; Zest never rewrites them.
+**Widget panels are off by default.** The four extra Command Center sections (two account panels, System Vitals, Claude Code) only appear after you point Zest at a folder of panel scripts in Settings > General > Widget panels. Until then Zest never runs a script, and the menu bar readout picker that depends on them is hidden. Even when configured, a panel script runs only while the Command Center is open (or, for the account panels, while the menu bar readout uses it), so panels cost nothing in the background. To build that folder: copy `panels/panels.example.json` to `panels/panels.local.json` (gitignored, machine-specific), edit the widget paths to match your own Ubersicht setup, run `panels/extract-panels.py`, then choose the `panels/` folder in Settings. The scripts run under your account exactly as extracted; Zest never rewrites them.
 
 ## Permissions and flags
 

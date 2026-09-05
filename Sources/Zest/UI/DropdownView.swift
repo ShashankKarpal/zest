@@ -61,7 +61,7 @@ struct DropdownView: View {
                 Divider1()
                 HStack(spacing: 8) {
                     Button(action: toggleLowPowerMode) {
-                        Label("Low Power: \(LowPowerMode.current() ? "On" : "Off")", systemImage: "leaf.fill").font(.system(size: 11))
+                        Label("Low Power: \(state.chargeLimiter.lowPowerOn ? "On" : "Off")", systemImage: "leaf.fill").font(.system(size: 11))
                     }.buttonStyle(.bordered)
                         .help(state.chargeLimiter.helperAvailable ? "Toggle Low Power Mode" : "Needs the zest-smc helper to change (see Command Center > Battery)")
                     Spacer()

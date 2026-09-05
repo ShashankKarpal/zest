@@ -22,7 +22,7 @@ struct BatterySnapshot: Equatable {
     var adapterVoltage: Double? = nil        // volts
     var adapterCurrentMA: Int? = nil
 
-    // Health (system_profiler, cached)
+    // Health (cycles and capacity from the IORegistry; condition from system_profiler, hourly)
     var cycleCount: Int? = nil
     var maxCapacityPercent: Int? = nil
     var condition: String? = nil
