@@ -49,12 +49,47 @@ struct SettingsView: View {
             toggle("Hide the number (minimal)", get: { state.config.menuBar.hideNumber }, set: { state.config.menuBar.hideNumber = $0; save() })
             toggle("Dark glyph (for light menu bars)", get: { state.config.menuBar.darkGlyph }, set: { state.config.menuBar.darkGlyph = $0; save() })
 
-            Divider1()
-            SectionHead(label: "CLAUDE USAGE IN MENU BAR")
-            Text("Optionally show a Claude usage percent next to the battery icon.").font(.system(size: 10)).foregroundColor(Theme.faint)
-            Picker("Show", selection: Binding(get: { config.menuBar.claudeMode }, set: { config.menuBar.claudeMode = $0; save() })) {
-                ForEach(MenuBarClaudeMode.allCases, id: \.self) { Text($0.label).tag($0) }
-            }.pickerStyle(.menu).frame(maxWidth: 260, alignment: .leading)
+            if config.panelsEnabled {
+                Divider1()
+                SectionHead(label: "PANEL READOUT IN MENU BAR")
+                Text("Optionally show a percent from one of your account panels next to the battery icon.").font(.system(size: 10)).foregroundColor(Theme.faint)
+                Picker("Show", selection: Binding(get: { config.menuBar.claudeMode }, set: { config.menuBar.claudeMode = $0; save() })) {
+                    ForEach(MenuBarClaudeMode.allCases, id: \.self) { Text($0.label).tag($0) }
+                }.pickerStyle(.menu).frame(maxWidth: 260, alignment: .leading)
+            }
+        }
+    }
+
+    // MARK: Widget panels (personal; off unless a folder is chosen)
+    private var panelsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHead(label: "WIDGET PANELS")
+            Text("Point Zest at a folder of panel scripts (acct1.sh, acct2.sh, vitals.sh, cc.sh, made by panels/extract-panels.py) to add four sections to the Command Center. Those scripts are yours and run under your account, exactly as written. Leave this empty and Zest never runs them.")
+                .font(.system(size: 10)).foregroundColor(Theme.ghost).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Text(config.panelsRoot ?? "Not set").font(.system(size: 11, design: .monospaced)).foregroundColor(config.panelsEnabled ? Theme.text : Theme.dim)
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer()
+                Button("Choose...") { choosePanelsRoot() }
+                if config.panelsEnabled {
+                    Button("Clear") { config.panelsRoot = nil; save(); state.panelsRootChanged() }
+                }
+            }
+        }
+    }
+
+    private func choosePanelsRoot() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Use folder"
+        panel.message = "Choose the folder that holds your panel scripts."
+        if let current = config.panelsRoot { panel.directoryURL = URL(fileURLWithPath: current) }
+        if panel.runModal() == .OK, let url = panel.url {
+            config.panelsRoot = url.path
+            save()
+            state.panelsRootChanged()
         }
     }
 
@@ -155,7 +190,10 @@ struct SettingsView: View {
                  : "Needs Accessibility in System Settings > Privacy & Security. Turning it on opens that pane. Off by default; nothing runs until granted.")
                 .font(.system(size: 10)).foregroundColor(Theme.ghost).fixedSize(horizontal: false, vertical: true)
             Divider1()
-            Text("Personal build. No license, no accounts. The only network use is the System Vitals VPN egress check inside the original fetch.py, and the optional battery digest, which talks only to your local LM Studio at localhost. Nothing leaves the Mac.")
+            panelsSection
+
+            Divider1()
+            Text("No license, no accounts, no telemetry. Zest's only network use is the optional battery digest, which talks to your local LM Studio at localhost. Panel scripts you add above do whatever they do; Zest itself sends nothing anywhere.")
                 .font(.system(size: 10)).foregroundColor(Theme.ghost).fixedSize(horizontal: false, vertical: true)
         }
     }

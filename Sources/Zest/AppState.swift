@@ -36,10 +36,12 @@ final class AppState: ObservableObject {
         digest = DigestService(battery: battery, history: batteryHistory, energy: energy)
         export = ExportService(history: batteryHistory, energy: energy, battery: battery)
 
-        account1 = WidgetPanelRunner(scriptName: "acct1.sh", interval: 30)
-        account2 = WidgetPanelRunner(scriptName: "acct2.sh", interval: 30)
-        vitals = WidgetPanelRunner(scriptName: "vitals.sh", interval: 5)
-        claudeCode = WidgetPanelRunner(scriptName: "cc.sh", interval: 30)
+        // Personal panels. Inert until the user names a scripts folder in Settings.
+        let root = cfg.panelsRoot
+        account1 = WidgetPanelRunner(scriptName: "acct1.sh", interval: 30, root: root)
+        account2 = WidgetPanelRunner(scriptName: "acct2.sh", interval: 30, root: root)
+        vitals = WidgetPanelRunner(scriptName: "vitals.sh", interval: 5, root: root)
+        claudeCode = WidgetPanelRunner(scriptName: "cc.sh", interval: 30, root: root)
 
         chargeLimiter.bind(battery: battery)
 
@@ -65,8 +67,22 @@ final class AppState: ObservableObject {
         }
     }
 
+    var panelRunners: [WidgetPanelRunner] { [account1, account2, vitals, claudeCode] }
+    var panelsEnabled: Bool { config.panelsEnabled }
+
+    // Called after the user changes the panels folder in Settings. Also drops the menu
+    // bar Claude readout when the panels that feed it are switched off.
+    func panelsRootChanged() {
+        let root = config.panelsRoot
+        panelRunners.forEach { $0.reconfigure(root: root) }
+        if !config.panelsEnabled && config.menuBar.claudeMode != .off {
+            config.menuBar.claudeMode = .off
+        }
+        objectWillChange.send()
+    }
+
     func startPanels() {
-        account1.start(); account2.start(); vitals.start(); claudeCode.start()
+        panelRunners.forEach { $0.start() }
         // Auto-dismiss the default macOS battery notifications when enabled and trusted.
         autoDismissTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self, self.config.autoDismissMacAlerts, MacAlertDismisser.trusted() else { return }

@@ -10,6 +10,9 @@ All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 
 ## Unreleased
 
+- Widget panels are gated behind a `panelsRoot` setting (Settings > General > Widget panels). With no folder chosen, which is every fresh install, the four personal Command Center sections (Account 1, Account 2, System Vitals, Claude Code) are hidden, no panel script is ever spawned, and the menu bar readout picker that depends on them is hidden. Before this, the public build showed the sections empty and ran `/bin/bash` against hard-coded `~/Projects/zest/panels/*.sh` paths every 5 to 30 seconds (2026-09-02 audit Z-B3, Z-A8). The runner also stays silent when a chosen folder goes missing instead of failing four times a cycle.
+- The privileged helper is looked up only at its installed path `/usr/local/libexec/zest/zest-smc`; the old `~/Projects/zest/zest-smc/zest-smc` fallback could never have passed the sudoers grant.
+- In-app privacy text no longer describes a VPN egress check that belongs to one user's own panel script.
 - README: merged the two conflicting Install sections; the notarized download is primary, build-from-source is the alternative.
 - build.sh: no personal signing identity as default; `ZEST_SIGN_IDENTITY` is required for Developer ID signing (the default was still present until 2026-09-02; now actually removed).
 - Security (2026-09-02 fleet audit): the sudoers grant for `powermetrics` is pinned to the exact argument vector Zest runs instead of allowing any arguments (an unrestricted grant let any user process create or truncate arbitrary files as root via `-o`). `install-helper.sh` refuses to install when `/usr/local` or `/usr/local/libexec` is not root-owned (sudoers path-hijack). `trigger-install.sh` logs to a `mktemp` path.

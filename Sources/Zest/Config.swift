@@ -192,6 +192,12 @@ final class AppConfig: ObservableObject, Codable {
     @Published var autoDismissMacAlerts: Bool = false // requires Accessibility
     @Published var quietHours = QuietHours()
     @Published var ecosystem: [EcoDevice] = []
+    // Folder holding the user's own panel scripts (acct1.sh, acct2.sh, vitals.sh, cc.sh),
+    // produced by panels/extract-panels.py. nil (the default, and the public build's
+    // state) hides the four panel sections and never spawns a script.
+    @Published var panelsRoot: String? = nil
+
+    var panelsEnabled: Bool { !(panelsRoot ?? "").isEmpty }
 
     static func defaultAlerts() -> [BatteryAlertRule] {
         [
@@ -204,7 +210,7 @@ final class AppConfig: ObservableObject, Codable {
 
     // MARK: Codable
     enum CodingKeys: String, CodingKey {
-        case menuBar, alerts, lifecycle, deviceAlerts, hiddenDevices, chargeLimit, glowIntensity, launchAtLogin, autoDismissMacAlerts, quietHours, ecosystem
+        case menuBar, alerts, lifecycle, deviceAlerts, hiddenDevices, chargeLimit, glowIntensity, launchAtLogin, autoDismissMacAlerts, quietHours, ecosystem, panelsRoot
     }
     init() {}
     init(from decoder: Decoder) throws {
@@ -220,6 +226,8 @@ final class AppConfig: ObservableObject, Codable {
         autoDismissMacAlerts = (try? c.decode(Bool.self, forKey: .autoDismissMacAlerts)) ?? false
         quietHours = (try? c.decode(QuietHours.self, forKey: .quietHours)) ?? QuietHours()
         ecosystem = (try? c.decode([EcoDevice].self, forKey: .ecosystem)) ?? []
+        let root = (try? c.decode(String.self, forKey: .panelsRoot)) ?? ""
+        panelsRoot = root.isEmpty ? nil : root
     }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -234,6 +242,7 @@ final class AppConfig: ObservableObject, Codable {
         try c.encode(autoDismissMacAlerts, forKey: .autoDismissMacAlerts)
         try c.encode(quietHours, forKey: .quietHours)
         try c.encode(ecosystem, forKey: .ecosystem)
+        try c.encodeIfPresent(panelsRoot, forKey: .panelsRoot)
     }
 
     // MARK: Persistence

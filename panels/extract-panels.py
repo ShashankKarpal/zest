@@ -3,10 +3,11 @@
 extract-panels.py
 
 Pulls the EXACT shell command out of each Ubersicht widget and writes it to a standalone
-script under ~/Projects/zest/panels/. Zest runs these scripts verbatim so the ported
-panels use the identical data pipeline (same ccusage wrappers, jq filters, plists, /tmp
-caches, fetch.py) as the desktop widgets. Re-run this any time the widgets change to
-re-sync. It never modifies the widgets themselves.
+script in this folder (panels/). Point Zest at this folder in Settings > General >
+Widget panels; until you do, Zest never runs any of them. Zest runs these scripts
+verbatim so the ported panels use the identical data pipeline (same ccusage wrappers,
+jq filters, plists, /tmp caches, fetch.py) as the desktop widgets. Re-run this any time
+the widgets change to re-sync. It never modifies the widgets themselves.
 
 Which widgets to extract is configuration, not code. The mapping lives in
 panels/panels.local.json (gitignored, machine-specific). If it does not exist,

@@ -86,7 +86,7 @@
 
 ### Bring your own widgets
 
-- **Ubersicht widget panels** rendered as native panels, each running its original pipeline verbatim.
+- **Ubersicht widget panels** rendered as native panels, each running its original pipeline verbatim. Off until you choose a scripts folder in Settings (see Configuration).
 
 ### System
 
@@ -147,7 +147,7 @@ Autostart:
 
 Settings live in `~/Library/Application Support/Zest/config.json`, created on first launch and never committed. Energy history, health history, and exports live in the same folder.
 
-Widget panel extraction reads its widget-to-script mapping from `panels/panels.local.json`, which is gitignored and machine-specific. Copy `panels/panels.example.json` to `panels/panels.local.json` and edit the widget paths to match your own Ubersicht setup.
+**Widget panels are off by default.** The four extra Command Center sections (two account panels, System Vitals, Claude Code) only appear after you point Zest at a folder of panel scripts in Settings > General > Widget panels. Until then Zest never runs a script, and the menu bar readout picker that depends on them is hidden. To build that folder: copy `panels/panels.example.json` to `panels/panels.local.json` (gitignored, machine-specific), edit the widget paths to match your own Ubersicht setup, run `panels/extract-panels.py`, then choose the `panels/` folder in Settings. The scripts run under your account exactly as extracted; Zest never rewrites them.
 
 ## Permissions and flags
 
@@ -176,7 +176,7 @@ docs/               screenshots
 
 ## Privacy
 
-Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for two fixed commands; see Permissions and flags above for exactly what that means.
+Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for two fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Ubersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings.
 
 ## License
 

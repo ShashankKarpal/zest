@@ -18,6 +18,14 @@ struct CommandCenterView: View {
         case vitals = "System Vitals"
         case claudeCode = "Claude Code"
         var id: String { rawValue }
+        // The four ported widget panels exist only when the user has pointed Zest at a
+        // scripts folder (Settings > General > Widget panels). A public build shows six.
+        var isPersonalPanel: Bool {
+            switch self {
+            case .account1, .account2, .vitals, .claudeCode: return true
+            default: return false
+            }
+        }
         var icon: String {
             switch self {
             case .battery: return "battery.100.bolt"
@@ -34,12 +42,16 @@ struct CommandCenterView: View {
         }
     }
 
+    private var visibleSections: [Section] {
+        Section.allCases.filter { state.panelsEnabled || !$0.isPersonalPanel }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Sidebar
             VStack(alignment: .leading, spacing: 4) {
                 Text("ZEST").font(.system(size: 12, weight: .bold)).tracking(2).foregroundColor(Theme.dim).padding(.bottom, 8)
-                ForEach(Section.allCases) { s in
+                ForEach(visibleSections) { s in
                     Button(action: { section = s }) {
                         HStack(spacing: 8) {
                             Image(systemName: s.icon).frame(width: 18)
@@ -67,6 +79,8 @@ struct CommandCenterView: View {
     }
 
     @ViewBuilder private var content: some View {
+        // A personal section that just got switched off falls back to Battery.
+        let section = visibleSections.contains(self.section) ? self.section : .battery
         switch section {
         case .battery:
             let snap = state.battery.snapshot

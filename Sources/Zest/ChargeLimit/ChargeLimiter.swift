@@ -2,13 +2,11 @@ import Foundation
 import Combine
 import AppKit
 
-// Resolves the privileged helper. Prefers the root-owned install; falls back to the build
-// tree so the helper can be tested before it is installed system-wide.
+// Resolves the privileged helper: the root-owned install written by
+// zest-smc/install-helper.sh. That is the only path the sudoers grant names, so a copy
+// anywhere else (the old build-tree fallback) could never have passed `sudo -n` anyway.
 enum ZestHelper {
-    static let candidates = [
-        "/usr/local/libexec/zest/zest-smc",
-        NSString(string: "~/Projects/zest/zest-smc/zest-smc").expandingTildeInPath
-    ]
+    static let candidates = ["/usr/local/libexec/zest/zest-smc"]
     static var path: String? { candidates.first { FileManager.default.isExecutableFile(atPath: $0) } }
     static func quote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 }

@@ -2,25 +2,48 @@ import Foundation
 import Combine
 
 // Runs one ported widget's data pipeline. The pipeline is the EXACT shell command from
-// the original Ubersicht widget, extracted byte-for-byte into a script under
-// ~/Projects/zest/panels/ at install time (see sync-panels.sh). Running the original
-// command verbatim preserves behavior exactly: same ccusage wrappers, same jq filters,
-// same plist reads, same /tmp caches, same fallbacks. This app never rewrites those.
+// the original Ubersicht widget, extracted byte-for-byte by panels/extract-panels.py into
+// a script inside the folder the user names in Settings (config `panelsRoot`). Running
+// the original command verbatim preserves behavior exactly: same ccusage wrappers, same
+// jq filters, same plist reads, same /tmp caches, same fallbacks. This app never rewrites
+// those. With no `panelsRoot` configured the runner is inert: nothing is spawned, ever.
 final class WidgetPanelRunner: ObservableObject {
     @Published private(set) var json: [String: Any] = [:]
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var raw: String = ""
 
-    let scriptPath: String
+    let scriptName: String
     let interval: TimeInterval
+    private(set) var scriptPath: String?
     private var timer: Timer?
+    private var started = false
 
-    init(scriptName: String, interval: TimeInterval) {
-        self.scriptPath = NSString(string: "~/Projects/zest/panels/\(scriptName)").expandingTildeInPath
+    init(scriptName: String, interval: TimeInterval, root: String?) {
+        self.scriptName = scriptName
         self.interval = interval
+        self.scriptPath = WidgetPanelRunner.resolve(root: root, scriptName: scriptName)
+    }
+
+    var isConfigured: Bool { scriptPath != nil }
+
+    private static func resolve(root: String?, scriptName: String) -> String? {
+        guard let root, !root.isEmpty else { return nil }
+        let expanded = NSString(string: root).expandingTildeInPath
+        return (expanded as NSString).appendingPathComponent(scriptName)
+    }
+
+    // Point the runner at a different folder (or nil to switch it off). Takes effect at
+    // once: a running timer is restarted against the new path, or stopped.
+    func reconfigure(root: String?) {
+        scriptPath = WidgetPanelRunner.resolve(root: root, scriptName: scriptName)
+        json = [:]; raw = ""; lastUpdated = nil
+        if started { stop(); started = false; start() }
     }
 
     func start() {
+        guard !started else { return }
+        started = true
+        guard scriptPath != nil else { return }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in self?.refresh() }
     }
@@ -28,7 +51,13 @@ final class WidgetPanelRunner: ObservableObject {
     deinit { timer?.invalidate() }
 
     func refresh() {
-        let path = scriptPath
+        guard let path = scriptPath else { return }
+        // Only a regular file is worth a bash spawn; a missing or moved folder stays silent
+        // instead of failing four times a cycle.
+        guard FileManager.default.isReadableFile(atPath: path) else {
+            DispatchQueue.main.async { self.raw = "Panel script not found: \(path)" }
+            return
+        }
         DispatchQueue.global(qos: .utility).async {
             let out = Shell.run("/bin/bash \(self.q(path))", timeout: 30)
             let trimmed = out.trimmingCharacters(in: .whitespacesAndNewlines)
