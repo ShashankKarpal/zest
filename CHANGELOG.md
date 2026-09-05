@@ -10,6 +10,7 @@ All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 
 ## Unreleased
 
+- Battery health shows the system thermal pressure (Nominal, Fair, Serious, Critical) from `ProcessInfo.thermalState`, pushed on change; the same signal the event log records as `thermal_state`.
 - SIGTERM (launchctl bootout, logout, shutdown) now runs the normal quit path, so the energy history tail is flushed and the `zest_stop` event is written; before, the process died without `applicationWillTerminate`.
 - `bash build.sh [release|debug] install` copies the finished bundle to `~/Applications/Zest.app` (or `ZEST_INSTALL_DIR`) with an atomic swap. Until now the only bundle was the in-tree build product, and `build.sh` begins by deleting it, so every rebuild removed the very file the LaunchAgent was running. `scripts/install-launchagent.sh` now prefers the installed copy, validates the plist, and reloads with bootout then bootstrap (the only sequence launchd accepts after the program changes).
 - History keys are UTC (2026-09-02 audit Z-B9). Energy buckets (`yyyy-MM-dd-HH`) and daily health samples (`yyyy-MM-dd`) used to be keyed in the Mac's current zone and locale, so a timezone change would have shifted every bucket. On first launch after this update the energy history is re-keyed once from the Mac's current zone to UTC (`energy/meta.json` gains `keyZone: UTC`; buckets that land on the same UTC hour are merged with their sample counts, so averages stay exact) and health samples get their day re-derived from their stored timestamp.

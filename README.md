@@ -52,7 +52,7 @@
 
 ### Battery health
 
-- **Full health readout:** max capacity, cycle count, temperature, condition, voltage, design and full capacity.
+- **Full health readout:** max capacity, cycle count, temperature, condition, voltage, design and full capacity, system thermal pressure.
 - **Service recommendation** when capacity or condition warrants it.
 - **Health history** with a capacity trendline, cycles per month, and a months-to-80-percent projection.
 

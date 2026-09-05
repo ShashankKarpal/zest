@@ -18,6 +18,8 @@ final class BatteryService: ObservableObject {
     private var conditionInFlight = false
     private var lastRegistry: [String: Any] = [:]
 
+    private var thermalObserver: NSObjectProtocol?
+
     init() {
         refresh()
         startNotifications()
@@ -25,11 +27,17 @@ final class BatteryService: ObservableObject {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        // Thermal pressure is pushed by the system; fold it into the next snapshot at once.
+        thermalObserver = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.refresh()
+        }
     }
 
     deinit {
         if let s = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetCurrent(), s, .defaultMode) }
         pollTimer?.invalidate()
+        if let o = thermalObserver { NotificationCenter.default.removeObserver(o) }
     }
 
     private func startNotifications() {
@@ -50,6 +58,7 @@ final class BatteryService: ObservableObject {
         readPowerSources(into: &snap)
         readIORegistry(into: &snap)
         readHealth(into: &snap)
+        snap.thermalState = ProcessInfo.processInfo.thermalState
         if snap != snapshot { snapshot = snap }
     }
 

@@ -21,6 +21,7 @@ struct BatteryHealthView: View {
                 metric("Voltage", snap.voltageV.map { String(format: "%.2f V", $0) } ?? "--")
                 metric("Design", snap.designCapacityMAh.map { "\($0) mAh" } ?? "--")
                 metric("Full", snap.rawMaxCapacityMAh.map { "\($0) mAh" } ?? "--")
+                metric("Thermal", snap.thermalLabel, color: snap.thermalIsElevated ? Theme.orange : Theme.text)
             }
             if snap.serviceRecommended {
                 Text("⚠︎ Service recommended. Consider a battery check with Apple Support.")
@@ -33,9 +34,9 @@ struct BatteryHealthView: View {
         guard let c else { return Theme.dim }
         if c >= 90 { return Theme.text }; if c >= 80 { return Theme.teal }; if c >= 70 { return Theme.orange }; return Theme.red
     }
-    private func metric(_ label: String, _ value: String) -> some View {
+    private func metric(_ label: String, _ value: String, color: Color = Theme.text) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.text)
+            Text(value).font(.system(size: 11, weight: .semibold)).foregroundColor(color)
             Text(label).font(.system(size: 9)).foregroundColor(Theme.faint)
         }.frame(maxWidth: .infinity)
     }

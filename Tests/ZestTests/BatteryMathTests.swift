@@ -44,6 +44,18 @@ final class BatteryMathTests: XCTestCase {
         XCTAssertFalse(s.serviceRecommended)
     }
 
+    func testThermalStateLabelAndElevation() {
+        var s = BatterySnapshot()
+        XCTAssertEqual(s.thermalLabel, "Nominal")
+        XCTAssertFalse(s.thermalIsElevated)
+        s.thermalState = .fair
+        XCTAssertEqual(s.thermalLabel, "Fair")
+        XCTAssertTrue(s.thermalIsElevated)
+        XCTAssertEqual(BatterySnapshot.thermalLabel(.serious), "Serious")
+        XCTAssertEqual(BatterySnapshot.thermalLabel(.critical), "Critical")
+        XCTAssertEqual(EventLog.name(.critical), "critical", "event feed uses the lowercase form")
+    }
+
     private func sample(day: String, daysAgo: Double, cap: Int?, cycles: Int?) -> BatteryHistory.Sample {
         BatteryHistory.Sample(day: day, maxCapacity: cap, cycles: cycles, tempC: nil,
                               ts: Date().timeIntervalSince1970 - daysAgo * 86400)

@@ -27,6 +27,20 @@ struct BatterySnapshot: Equatable {
     var maxCapacityPercent: Int? = nil
     var condition: String? = nil
 
+    // System thermal pressure (ProcessInfo.thermalState), free to read, pushed on change.
+    var thermalState: ProcessInfo.ThermalState = .nominal
+    var thermalLabel: String { Self.thermalLabel(thermalState) }
+    var thermalIsElevated: Bool { thermalState != .nominal }
+    static func thermalLabel(_ s: ProcessInfo.ThermalState) -> String {
+        switch s {
+        case .nominal: return "Nominal"
+        case .fair: return "Fair"
+        case .serious: return "Serious"
+        case .critical: return "Critical"
+        @unknown default: return "Unknown"
+        }
+    }
+
     // Derived power (watts)
     var batteryWatts: Double {
         guard let v = voltageV, let a = amperageMA else { return 0 }
