@@ -42,4 +42,13 @@ if lockFD >= 0 && flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
+
+// launchd stops the agent with SIGTERM (bootout, logout, shutdown). By default that kills
+// the process without applicationWillTerminate, so the energy history tail and the
+// zest_stop event were lost on every reload. Route the signal into a normal terminate.
+signal(SIGTERM, SIG_IGN)
+let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+sigterm.setEventHandler { NSApp.terminate(nil) }
+sigterm.resume()
+
 app.run()
