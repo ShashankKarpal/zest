@@ -54,7 +54,7 @@ final class PanelGatingTests: XCTestCase {
         let all = CommandCenterView.Section.allCases
         let personal = all.filter { $0.isPersonalPanel }
         XCTAssertEqual(personal.count, 4)
-        XCTAssertEqual(all.count - personal.count, 6, "public build shows six sections")
+        XCTAssertEqual(all.count - personal.count, 7, "public build shows seven sections")
         XCTAssertEqual(Set(personal.map(\.rawValue)), ["Account 1", "Account 2", "System Vitals", "Claude Code"])
     }
 }

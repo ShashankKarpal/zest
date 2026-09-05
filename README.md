@@ -49,6 +49,7 @@
 - **Lifecycle alerts:** plugged in, unplugged, charged above 80 percent, fully charged.
 - **Per-device low and full alerts.**
 - **Quiet hours** with an option to still allow critical low-battery alerts.
+- **Alert history:** the last 50 alerts in the Command Center, including the ones quiet hours silenced.
 
 ### Battery health
 

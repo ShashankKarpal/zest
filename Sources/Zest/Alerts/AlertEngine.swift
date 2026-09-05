@@ -19,6 +19,7 @@ struct AlertPayload {
 final class AlertEngine {
     private let config: AppConfig
     private let overlay: OverlayManager
+    private let history: AlertHistory?
 
     private var lastPercent: Int?
     private var lastAC: Bool?
@@ -28,18 +29,22 @@ final class AlertEngine {
     private var lifecycleArmed = true
     private var deviceCrossed = Set<String>()  // "name:low" / "name:full" fired
 
-    init(config: AppConfig, overlay: OverlayManager) {
+    init(config: AppConfig, overlay: OverlayManager, history: AlertHistory? = nil) {
         self.config = config
         self.overlay = overlay
+        self.history = history
     }
 
     // Central gate: suppresses alerts during quiet hours, except a critical low-battery
     // alert when "allow critical" is on. Everything routes through here.
     private func present(_ payload: AlertPayload, critical: Bool) {
         let hour = Calendar.current.component(.hour, from: Date())
+        var suppressed = false
         if config.quietHours.contains(hour: hour) {
-            if !(critical && config.quietHours.allowCritical) { return }
+            if !(critical && config.quietHours.allowCritical) { suppressed = true }
         }
+        history?.record(title: payload.title, subtitle: payload.subtitle, colorHex: payload.colorHex, suppressed: suppressed)
+        if suppressed { return }
         overlay.show(payload)
     }
 

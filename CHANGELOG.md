@@ -10,6 +10,7 @@ All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 
 ## Unreleased
 
+- Command Center > Alerts: the last 50 alerts Zest raised, newest first, with the ones quiet hours silenced marked as such, plus Clear. Persisted in `alerts-history.json` beside the config.
 - Energy history rolls hourly buckets older than seven days into UTC daily buckets (sums and sample counts add, so the 7d and 30d averages are unchanged; the 24 h sparkline keeps hourly resolution). The owner's file went from 4.6 MB (659 hourly buckets) to 1.6 MB (167 hourly plus 23 daily) with every sample accounted for.
 - Battery health shows the system thermal pressure (Nominal, Fair, Serious, Critical) from `ProcessInfo.thermalState`, pushed on change; the same signal the event log records as `thermal_state`.
 - SIGTERM (launchctl bootout, logout, shutdown) now runs the normal quit path, so the energy history tail is flushed and the `zest_stop` event is written; before, the process died without `applicationWillTerminate`.

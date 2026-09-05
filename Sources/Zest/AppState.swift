@@ -14,6 +14,7 @@ final class AppState: ObservableObject {
     let presence = PresenceService()
     let overlay: OverlayManager
     let alertEngine: AlertEngine
+    let alertHistory = AlertHistory()
     let chargeLimiter: ChargeLimiter
     let digest: DigestService
     let export: ExportService
@@ -32,7 +33,7 @@ final class AppState: ObservableObject {
         let cfg = AppConfig.load()
         config = cfg
         overlay = OverlayManager(config: cfg)
-        alertEngine = AlertEngine(config: cfg, overlay: overlay)
+        alertEngine = AlertEngine(config: cfg, overlay: overlay, history: alertHistory)
         chargeLimiter = ChargeLimiter(config: cfg)
         digest = DigestService(battery: battery, history: batteryHistory, energy: energy)
         export = ExportService(history: batteryHistory, energy: energy, battery: battery)
@@ -63,7 +64,7 @@ final class AppState: ObservableObject {
 
         // Re-publish child changes so views observing AppState update.
         for obj in [battery as any ObservableObject, batteryHistory, devices, energy, iosDevices, presence,
-                    chargeLimiter, digest, account1, account2, vitals, claudeCode] as [any ObservableObject] {
+                    chargeLimiter, digest, alertHistory, account1, account2, vitals, claudeCode] as [any ObservableObject] {
             if let pub = (obj.objectWillChange as any Publisher) as? ObservableObjectPublisher {
                 pub.sink { [weak self] in self?.objectWillChange.send() }.store(in: &bag)
             }

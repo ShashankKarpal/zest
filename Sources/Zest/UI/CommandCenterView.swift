@@ -13,13 +13,14 @@ struct CommandCenterView: View {
         case ecosystem = "Ecosystem"
         case iosHealth = "iOS Health"
         case digest = "Digest"
+        case alerts = "Alerts"
         case account1 = "Account 1"
         case account2 = "Account 2"
         case vitals = "System Vitals"
         case claudeCode = "Claude Code"
         var id: String { rawValue }
         // The four ported widget panels exist only when the user has pointed Zest at a
-        // scripts folder (Settings > General > Widget panels). A public build shows six.
+        // scripts folder (Settings > General > Widget panels). A public build shows seven.
         var isPersonalPanel: Bool {
             switch self {
             case .account1, .account2, .vitals, .claudeCode: return true
@@ -34,6 +35,7 @@ struct CommandCenterView: View {
             case .ecosystem: return "macbook.and.iphone"
             case .iosHealth: return "iphone"
             case .digest: return "sparkles"
+            case .alerts: return "bell.badge"
             case .account1: return "1.circle"
             case .account2: return "2.circle"
             case .vitals: return "cpu"
@@ -100,6 +102,8 @@ struct CommandCenterView: View {
             IOSHealthView(service: state.iosDevices)
         case .digest:
             DigestView(digest: state.digest)
+        case .alerts:
+            AlertHistoryView(history: state.alertHistory)
         case .account1:
             Account1Panel(runner: state.account1)
         case .account2:
