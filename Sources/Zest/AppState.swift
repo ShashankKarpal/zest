@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     let chargeLimiter: ChargeLimiter
     let digest: DigestService
     let export: ExportService
+    let eventLog: EventLog
 
     // Ported widget panels
     let account1: WidgetPanelRunner
@@ -35,6 +36,7 @@ final class AppState: ObservableObject {
         chargeLimiter = ChargeLimiter(config: cfg)
         digest = DigestService(battery: battery, history: batteryHistory, energy: energy)
         export = ExportService(history: batteryHistory, energy: energy, battery: battery)
+        eventLog = EventLog(directory: cfg.eventLogDir)
 
         // Personal panels. Inert until the user names a scripts folder in Settings.
         let root = cfg.panelsRoot
@@ -50,6 +52,7 @@ final class AppState: ObservableObject {
             .sink { [weak self] snap in
                 self?.alertEngine.evaluateBattery(snap)
                 self?.batteryHistory.record(snap)
+                self?.eventLog.observe(snap)
             }
             .store(in: &bag)
 
@@ -94,7 +97,15 @@ final class AppState: ObservableObject {
         objectWillChange.send()
     }
 
+    // Called after the user changes the event log folder in Settings.
+    func eventLogDirChanged() {
+        eventLog.reconfigure(directory: config.eventLogDir)
+        if eventLog.isEnabled { eventLog.lifecycle("zest_start") }
+        objectWillChange.send()
+    }
+
     func startPanels() {
+        eventLog.lifecycle("zest_start")
         updatePanelDemand()
         panelRunners.forEach { $0.start() }
         // Auto-dismiss the default macOS battery notifications when enabled and trusted.
@@ -106,6 +117,8 @@ final class AppState: ObservableObject {
 
     func shutdown() {
         chargeLimiter.restoreDefaults()
+        eventLog.lifecycle("zest_stop")
+        eventLog.flush()
         energy.flush()
         config.save()
     }

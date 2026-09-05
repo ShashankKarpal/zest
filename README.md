@@ -84,6 +84,10 @@
 - **Local battery digest** from your LM Studio model, fully on-device, with a graceful fallback when LM Studio is not running.
 - **Late-night high-drain nudge.**
 
+### Event log for local tools
+
+- **Optional JSON Lines feed** (Settings > General > Event log): plugged in, unplugged, fully charged, charge cycle, battery temperature bands, Low Power Mode, thermal pressure, start and stop. One object per line, UTC timestamps, written to a folder you choose. Off by default; nothing leaves the Mac.
+
 ### Bring your own widgets
 
 - **Ubersicht widget panels** rendered as native panels, each running its original pipeline verbatim. Off until you choose a scripts folder in Settings (see Configuration).
@@ -145,7 +149,9 @@ Autostart:
 
 ## Configuration
 
-Settings live in `~/Library/Application Support/Zest/config.json`, created on first launch and never committed. Energy history, health history, and exports live in the same folder.
+Settings live in `~/Library/Application Support/Zest/config.json`, created on first launch and never committed. Energy history, health history, and exports live in the same folder. History keys are UTC, so a timezone change never shifts a bucket.
+
+**Event log** (`eventLogDir`, Settings > General): when set, Zest appends `zest-events.jsonl` in that folder, one line per event such as `{"ts":"2026-09-05T04:47:51Z","source":"zest","host":"...","event":"plugged_in","percent":40,"adapterWatts":96}`. Events: `plugged_in`, `unplugged`, `fully_charged`, `charge_cycle` (cycles, maxCapacityPercent), `battery_temp` (level normal / warm / hot, tempC), `low_power_mode` (on), `thermal_state` (nominal / fair / serious / critical), `zest_start`, `zest_stop` (version). At most one line per event type per minute; the file rotates at 1 MB keeping one previous generation.
 
 **Widget panels are off by default.** The four extra Command Center sections (two account panels, System Vitals, Claude Code) only appear after you point Zest at a folder of panel scripts in Settings > General > Widget panels. Until then Zest never runs a script, and the menu bar readout picker that depends on them is hidden. Even when configured, a panel script runs only while the Command Center is open (or, for the account panels, while the menu bar readout uses it), so panels cost nothing in the background. To build that folder: copy `panels/panels.example.json` to `panels/panels.local.json` (gitignored, machine-specific), edit the widget paths to match your own Ubersicht setup, run `panels/extract-panels.py`, then choose the `panels/` folder in Settings. The scripts run under your account exactly as extracted; Zest never rewrites them.
 

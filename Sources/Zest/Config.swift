@@ -196,8 +196,11 @@ final class AppConfig: ObservableObject, Codable {
     // produced by panels/extract-panels.py. nil (the default, and the public build's
     // state) hides the four panel sections and never spawns a script.
     @Published var panelsRoot: String? = nil
+    // Folder that receives zest-events.jsonl for other local tools (see EventLog). nil = off.
+    @Published var eventLogDir: String? = nil
 
     var panelsEnabled: Bool { !(panelsRoot ?? "").isEmpty }
+    var eventLogEnabled: Bool { !(eventLogDir ?? "").isEmpty }
 
     static func defaultAlerts() -> [BatteryAlertRule] {
         [
@@ -210,7 +213,7 @@ final class AppConfig: ObservableObject, Codable {
 
     // MARK: Codable
     enum CodingKeys: String, CodingKey {
-        case menuBar, alerts, lifecycle, deviceAlerts, hiddenDevices, chargeLimit, glowIntensity, launchAtLogin, autoDismissMacAlerts, quietHours, ecosystem, panelsRoot
+        case menuBar, alerts, lifecycle, deviceAlerts, hiddenDevices, chargeLimit, glowIntensity, launchAtLogin, autoDismissMacAlerts, quietHours, ecosystem, panelsRoot, eventLogDir
     }
     init() {}
     init(from decoder: Decoder) throws {
@@ -228,6 +231,8 @@ final class AppConfig: ObservableObject, Codable {
         ecosystem = (try? c.decode([EcoDevice].self, forKey: .ecosystem)) ?? []
         let root = (try? c.decode(String.self, forKey: .panelsRoot)) ?? ""
         panelsRoot = root.isEmpty ? nil : root
+        let events = (try? c.decode(String.self, forKey: .eventLogDir)) ?? ""
+        eventLogDir = events.isEmpty ? nil : events
     }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -243,6 +248,7 @@ final class AppConfig: ObservableObject, Codable {
         try c.encode(quietHours, forKey: .quietHours)
         try c.encode(ecosystem, forKey: .ecosystem)
         try c.encodeIfPresent(panelsRoot, forKey: .panelsRoot)
+        try c.encodeIfPresent(eventLogDir, forKey: .eventLogDir)
     }
 
     // MARK: Persistence

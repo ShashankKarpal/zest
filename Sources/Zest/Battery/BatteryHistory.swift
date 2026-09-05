@@ -65,14 +65,29 @@ final class BatteryHistory: ObservableObject {
         return (perMonth, monthsTo80)
     }
 
-    private static func dayKey(_ d: Date = Date()) -> String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: d)
+    // UTC day keys since 2026-09-05 (audit Z-B9); the old local-zone key would have moved
+    // every sample by a day at the 2026-09-15 timezone change.
+    private static func dayKey(_ d: Date = Date()) -> String { TimeKeys.dayKey(d) }
+
+    // Every sample carries its instant (`ts`), so the day key is re-derived in UTC on
+    // load and same-day duplicates collapse to the latest. Pure for testing.
+    static func normalize(_ arr: [Sample]) -> [Sample] {
+        var byDay: [String: Sample] = [:]
+        for var s in arr {
+            s.day = TimeKeys.dayKey(Date(timeIntervalSince1970: s.ts))
+            if let existing = byDay[s.day], existing.ts >= s.ts { continue }
+            byDay[s.day] = s
+        }
+        return byDay.values.sorted { $0.day < $1.day }
     }
+
     private func load() {
         guard let data = try? Data(contentsOf: url), let arr = try? JSONDecoder().decode([Sample].self, from: data) else { return }
-        samples = arr.sorted { $0.day < $1.day }
+        let normalized = Self.normalize(arr)
+        samples = normalized
+        if normalized.map(\.day) != arr.map(\.day) { save() }
     }
     private func save() {
-        if let data = try? JSONEncoder().encode(samples) { try? data.write(to: url) }
+        if let data = try? JSONEncoder().encode(samples) { try? data.write(to: url, options: .atomic) }
     }
 }

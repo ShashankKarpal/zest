@@ -79,18 +79,45 @@ struct SettingsView: View {
     }
 
     private func choosePanelsRoot() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Use folder"
-        panel.message = "Choose the folder that holds your panel scripts."
-        if let current = config.panelsRoot { panel.directoryURL = URL(fileURLWithPath: current) }
-        if panel.runModal() == .OK, let url = panel.url {
-            config.panelsRoot = url.path
+        chooseFolder(message: "Choose the folder that holds your panel scripts.", current: config.panelsRoot) { path in
+            config.panelsRoot = path
             save()
             state.panelsRootChanged()
         }
+    }
+
+    // MARK: Event log (local file feed for other tools; off unless a folder is chosen)
+    private var eventLogSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHead(label: "EVENT LOG FOR LOCAL TOOLS")
+            Text("Append battery events (plugged in, unplugged, fully charged, charge cycle, temperature bands, Low Power Mode, thermal pressure, start and stop) as one JSON line each to zest-events.jsonl in a folder you choose. UTC timestamps, no network. Leave empty and nothing is written.")
+                .font(.system(size: 10)).foregroundColor(Theme.ghost).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Text(config.eventLogDir ?? "Not set").font(.system(size: 11, design: .monospaced)).foregroundColor(config.eventLogEnabled ? Theme.text : Theme.dim)
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer()
+                Button("Choose...") {
+                    chooseFolder(message: "Choose the folder that receives zest-events.jsonl.", current: config.eventLogDir) { path in
+                        config.eventLogDir = path; save(); state.eventLogDirChanged()
+                    }
+                }
+                if config.eventLogEnabled {
+                    Button("Clear") { config.eventLogDir = nil; save(); state.eventLogDirChanged() }
+                }
+            }
+        }
+    }
+
+    private func chooseFolder(message: String, current: String?, onPick: (String) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Use folder"
+        panel.message = message
+        if let current { panel.directoryURL = URL(fileURLWithPath: NSString(string: current).expandingTildeInPath) }
+        if panel.runModal() == .OK, let url = panel.url { onPick(url.path) }
     }
 
     // MARK: Alerts
@@ -191,6 +218,9 @@ struct SettingsView: View {
                 .font(.system(size: 10)).foregroundColor(Theme.ghost).fixedSize(horizontal: false, vertical: true)
             Divider1()
             panelsSection
+
+            Divider1()
+            eventLogSection
 
             Divider1()
             Text("No license, no accounts, no telemetry. Zest's only network use is the optional battery digest, which talks to your local LM Studio at localhost. Panel scripts you add above do whatever they do; Zest itself sends nothing anywhere.")

@@ -135,25 +135,40 @@ final class EnergySampler: ObservableObject {
         return (comm as NSString).lastPathComponent
     }
 
-    // One formatter and a parsed-key cache, both confined to sampleQueue. The old code built
-    // a fresh DateFormatter for every bucket on every pass (three window averages, a
-    // seven-day average per live app, and the prune: roughly 8,600 formatter allocations
-    // per 12 s tick over a 30-day history), which with the 4.6 MB history rewrite below was
-    // most of Zest's idle CPU.
-    private let hourFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HH"; return f
-    }()
+    // Keys are UTC (TimeKeys) since 2026-09-05; the parsed-key cache is confined to
+    // sampleQueue. The old code built a fresh DateFormatter in the local zone for every
+    // bucket on every pass (three window averages, a seven-day average per live app, and
+    // the prune: roughly 8,600 formatter allocations per 12 s tick over a 30-day history),
+    // which with the 4.6 MB history rewrite below was most of Zest's idle CPU.
     private var hourKeyDates: [String: Date] = [:]
     private var lastSave: Date = .distantPast
     private var lastPrune: Date = .distantPast
     private let saveInterval: TimeInterval = 300
+    static let keyZoneTag = "UTC"
 
-    private func hourKey(_ date: Date = Date()) -> String { hourFormatter.string(from: date) }
+    private func hourKey(_ date: Date = Date()) -> String { TimeKeys.hourKey(date) }
     private func dateFromHourKey(_ key: String) -> Date? {
         if let d = hourKeyDates[key] { return d }
-        guard let d = hourFormatter.date(from: key) else { return nil }
+        guard let d = TimeKeys.date(fromHourKey: key) else { return nil }
         hourKeyDates[key] = d
         return d
+    }
+
+    // Re-keys a history written with local-zone keys into UTC, merging buckets that land
+    // on the same UTC hour. Pure so the migration is testable; `zone` is the zone the old
+    // keys were written in (the Mac's zone at migration time).
+    static func rekeyToUTC(hourly: [String: [String: Double]], counts: [String: Int], from zone: TimeZone)
+        -> (hourly: [String: [String: Double]], counts: [String: Int]) {
+        var h: [String: [String: Double]] = [:]
+        var c: [String: Int] = [:]
+        for (oldKey, bucket) in hourly {
+            guard let newKey = TimeKeys.hourKey(rekeying: oldKey, from: zone) else { continue }
+            var merged = h[newKey] ?? [:]
+            for (app, v) in bucket { merged[app, default: 0] += v }
+            h[newKey] = merged
+            c[newKey, default: 0] += counts[oldKey] ?? 0
+        }
+        return (h, c)
     }
 
     private func recordHistory(_ live: [String: Double]) {
@@ -256,15 +271,31 @@ final class EnergySampler: ObservableObject {
         if let data = try? JSONSerialization.data(withJSONObject: payload) { try? data.write(to: historyURL, options: .atomic) }
     }
     private func saveMeta() {
-        if let data = try? JSONSerialization.data(withJSONObject: ["firstTS": firstTS]) { try? data.write(to: metaURL) }
+        let meta: [String: Any] = ["firstTS": firstTS, "keyZone": Self.keyZoneTag]
+        if let data = try? JSONSerialization.data(withJSONObject: meta) { try? data.write(to: metaURL, options: .atomic) }
     }
     private func loadHistory() {
         if let data = try? Data(contentsOf: historyURL), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             hourly = (obj["hourly"] as? [String: [String: Double]]) ?? [:]
             hourlyCount = (obj["counts"] as? [String: Int]) ?? [:]
         }
+        var keyZone: String? = nil
         if let data = try? Data(contentsOf: metaURL), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             firstTS = (obj["firstTS"] as? Double) ?? 0
+            keyZone = obj["keyZone"] as? String
+        }
+        // One-time migration: histories written before 2026-09-05 carry local-zone keys
+        // and no keyZone tag. Re-key them in the zone this Mac is in right now (the zone
+        // they were written in, as long as the migration runs before the Mac moves).
+        if keyZone != Self.keyZoneTag, !hourly.isEmpty {
+            let migrated = Self.rekeyToUTC(hourly: hourly, counts: hourlyCount, from: TimeZone.current)
+            hourly = migrated.hourly
+            hourlyCount = migrated.counts
+            saveHistory()
+            saveMeta()
+            NSLog("Zest: energy history re-keyed from \(TimeZone.current.identifier) to UTC (\(hourly.count) buckets)")
+        } else if keyZone != Self.keyZoneTag {
+            saveMeta()
         }
     }
 }
