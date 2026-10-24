@@ -14,6 +14,11 @@ if [ ! -d "$APP" ]; then
   exit 1
 fi
 
+# Only a release build with no build paths is ever submitted (finding F04); a debug build
+# carries its whole debug symbol table.
+echo "==> Path check"
+bash "$ROOT/scripts/check-bundle-paths.sh" "$APP"
+
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 ZIP="$(mktemp -d -t zest-notarize)/Zest-notarize.zip"   # unpredictable path, not a fixed /tmp name
 DIST="$ROOT/Zest-v${VERSION}-macOS.zip"

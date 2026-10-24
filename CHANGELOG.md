@@ -2,15 +2,9 @@
 
 All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 
-## v3.0
-
-- Signed and notarized Developer ID release: download from Releases, no Xcode required.
-- Privileged helper (`zest-smc`) for Low Power Mode toggle and true per-app powermetrics energy.
-- Ecosystem battery view, health history with capacity trendline, energy grading, Ubersicht panel embedding, local LM Studio digest.
-
 ## v3.1
 
-- Release builds carry no build paths. The v3.0 binary held 76 absolute paths with the builder's home folder in its debug symbol table. `build.sh release` now strips debug symbols (`strip -S`; function names stay for crash reports) and runs `scripts/check-bundle-paths.sh`, which greps the raw bytes of every file in the signed bundle for `/Users/` and for the build user's name as a path component (`/<name>`) and fails the build on any hit, or with exit 2 when a file cannot be read. `strings -a | grep /Users/` is not a valid check: on macOS 27 it printed 0 for a binary holding 87 such paths. `scripts/test-bundle-paths.sh` (run by CI) checks the check on planted fixtures.
+- Release builds carry no build paths. The v3.0 binary held 76 absolute paths with the builder's home folder in its debug symbol table. `build.sh release` now strips debug symbols (`strip -S`; function names stay for crash reports) and runs `scripts/check-bundle-paths.sh`, which greps the raw bytes of every file in the signed bundle for `/Users/` and for the build user's name as a whole folder name (`/<name>/`) and fails the build on any hit, or with exit 2 when a file cannot be read. `strings -a | grep /Users/` is not a valid check: on macOS 27 it printed 0 for a binary holding 87 such paths. `scripts/test-bundle-paths.sh` (run by CI) checks the check on planted fixtures. `notarize.sh` runs the same check before it submits anything.
 - Homebrew: `brew install --cask shashankkarpal/tap/zest`. `brew uninstall --cask zest` also boots out and removes the `com.zest.app` LaunchAgent, so a KeepAlive job is never left relaunching a deleted app.
 - Root helper trimmed to what the app sends. `zest-smc` loses `limit-set` (the SMC charge write; charge care stays with macOS), `limit-get`, `read`, `size` and the whole SMC client, and `lowpowermode` accepts exactly `0` or `1`. `probe` now answers with a helper interface number; a helper installed before v3.1 answers without one, and the Command Center's Charge Limit card then asks for a re-install, because that helper's grant allowed any arguments. The sudoers grant written by `install-helper.sh` names the exact argument vectors (`probe`, `lowpowermode 0`, `lowpowermode 1`, and the pinned `powermetrics` line) instead of the bare helper path, which allowed any arguments as root. Re-run `sudo bash zest-smc/install-helper.sh` to replace an older grant. `install-helper.sh --print-sudoers <user>` prints the grant without root, and `zest-smc/test-helper.sh` (run by CI) checks the helper, the grant, and that every `sudo -n` call in `Sources/` is covered by it.
 - Command Center > Alerts: the last 50 alerts Zest raised, newest first, with the ones quiet hours silenced marked as such, plus Clear. Persisted in `alerts-history.json` beside the config.
@@ -34,3 +28,9 @@ All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 - `exportJSON` no longer silently writes nothing when a health value is missing (optionals are encoded as null).
 - The Accessibility notification dismisser matches exact macOS battery phrases only; it used to close any banner containing "charge".
 - BLE cache path fixed (`~/../tmp` had resolved to `/Users/tmp`); the reader now trusts only a regular file owned by the current user.
+
+## v3.0
+
+- Signed and notarized Developer ID release: download from Releases, no Xcode required.
+- Privileged helper (`zest-smc`) for Low Power Mode toggle and true per-app powermetrics energy.
+- Ecosystem battery view, health history with capacity trendline, energy grading, Ubersicht panel embedding, local LM Studio digest.
