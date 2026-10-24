@@ -32,8 +32,13 @@ $1 ALL=(root) NOPASSWD: /usr/bin/powermetrics --samplers tasks -n 1 -i 400
 EOF
 }
 
+# A macOS short name: letters, digits, dot, underscore, hyphen. Anything else (a space, a
+# newline) could change the meaning of the sudoers file, so refuse it.
+valid_user() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9._][A-Za-z0-9._-]*$' && [ "$(printf '%s' "$1" | wc -l | tr -d ' ')" = 0 ]; }
+
 if [ "${1:-}" = "--print-sudoers" ]; then
   [ -n "${2:-}" ] || { echo "usage: bash install-helper.sh --print-sudoers <user>" >&2; exit 2; }
+  valid_user "$2" || { echo "INVALID_USER: not a macOS short name" >&2; exit 2; }
   CHECK="$(mktemp)"
   sudoers_lines "$2" | tee "$CHECK"
   visudo -cf "$CHECK" >/dev/null || { rm -f "$CHECK"; echo "SUDOERS_INVALID" >&2; exit 1; }
@@ -42,6 +47,7 @@ if [ "${1:-}" = "--print-sudoers" ]; then
 fi
 
 if [ "$(id -u)" != "0" ]; then echo "must run as root"; exit 1; fi
+valid_user "$USER_NAME" || { echo "INVALID_USER: not a macOS short name"; exit 1; }
 if [ ! -x "$BUILT_HELPER" ]; then echo "built helper not found at $BUILT_HELPER (run build.sh first)"; exit 1; fi
 
 # sudoers matches the command by path string, not by inode. If any parent of
@@ -55,18 +61,19 @@ for d in /usr/local /usr/local/libexec "$DEST_DIR"; do
   fi
 done
 
-install -d -o root -g wheel -m 755 "$DEST_DIR"
-install -o root -g wheel -m 755 "$BUILT_HELPER" "$DEST"
-
+# Validate the grant BEFORE touching the helper: the app trusts the helper's interface
+# number to mean the matching grant is installed, so a new binary must never sit behind
+# an old grant because the new one failed validation.
 TMP="$(mktemp)"
 sudoers_lines "$USER_NAME" > "$TMP"
-
-if visudo -cf "$TMP" >/dev/null 2>&1; then
-  install -o root -g wheel -m 440 "$TMP" /etc/sudoers.d/zest-smc
+if ! visudo -cf "$TMP" >/dev/null 2>&1; then
   rm -f "$TMP"
-  echo "INSTALL_OK helper=$DEST sudoers=/etc/sudoers.d/zest-smc user=$USER_NAME"
-else
-  rm -f "$TMP"
-  echo "SUDOERS_INVALID: not installed"
+  echo "SUDOERS_INVALID: nothing installed"
   exit 1
 fi
+
+install -d -o root -g wheel -m 755 "$DEST_DIR"
+install -o root -g wheel -m 755 "$BUILT_HELPER" "$DEST"
+install -o root -g wheel -m 440 "$TMP" /etc/sudoers.d/zest-smc
+rm -f "$TMP"
+echo "INSTALL_OK helper=$DEST sudoers=/etc/sudoers.d/zest-smc user=$USER_NAME"

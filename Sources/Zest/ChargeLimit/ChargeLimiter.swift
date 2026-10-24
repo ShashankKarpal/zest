@@ -17,10 +17,12 @@ enum ZestHelper {
 
     // Classifies the output of `sudo -n <helper> probe`. A helper older than v3.1 answers
     // "ok root" with no interface number; it was installed with a grant that allowed it
-    // any arguments as root, so it still works but needs a re-install.
+    // any arguments as root, so it still works but needs a re-install. The helper's answer
+    // is the last line: sudo may print a warning line before it (stderr is merged).
     static func probeResult(_ output: String) -> ProbeResult {
-        let line = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard line.hasPrefix("ok") else { return .unavailable }
+        let lines = output.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard let line = lines.last, line.hasPrefix("ok") else { return .unavailable }
         let words = line.split(separator: " ")
         if let i = words.firstIndex(of: "helper"), i + 1 < words.count,
            let n = Int(words[i + 1]), n >= interface {

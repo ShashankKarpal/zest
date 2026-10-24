@@ -24,6 +24,11 @@ final class HelperProbeTests: XCTestCase {
         XCTAssertEqual(ZestHelper.probeResult("ok root helper two"), .outdated)
     }
 
+    func testSudoWarningBeforeTheAnswerIsIgnored() {
+        XCTAssertEqual(ZestHelper.probeResult("sudo: unable to resolve host x\nok root helper 2\n"), .current)
+        XCTAssertEqual(ZestHelper.probeResult("sudo: unable to resolve host x\nok root\n"), .outdated)
+    }
+
     func testNoGrantOrNoAnswerIsUnavailable() {
         XCTAssertEqual(ZestHelper.probeResult("sudo: a password is required\n"), .unavailable)
         XCTAssertEqual(ZestHelper.probeResult(""), .unavailable)

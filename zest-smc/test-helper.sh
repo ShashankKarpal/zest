@@ -8,7 +8,8 @@
 #    accepts only "0" or "1" and refuses to act without root, probe answers with the
 #    helper interface number, and that number equals ZestHelper.interface in the app.
 # 2. Prints the grant install-helper.sh would install (--print-sudoers, checked by visudo)
-#    and requires exactly the four argument vectors, with no bare helper path.
+#    and requires exactly the four argument vectors, with no bare helper path, and that a
+#    user name able to change the file's meaning (a newline, a space) is refused.
 # 3. Reads every line of Sources/ that names sudo. Each `sudo -n` call must be covered by
 #    that grant, so the app can never send a command the grant refuses; any other use of
 #    sudo (a Process argument list, a split string) fails the test until it is listed here.
@@ -26,21 +27,26 @@ checks=0
 pass() { checks=$((checks + 1)); echo "ok   $1"; }
 fail() { checks=$((checks + 1)); fails=$((fails + 1)); echo "FAIL $1"; }
 
-# expect <name> <want exit> <want output prefix> <args...>
+# expect <name> <want exit> <want output prefix> <args...>; expect_exact compares the
+# whole output instead of its start.
+EXACT=0
 expect() {
   local name="$1" want_rc="$2" want_out="$3"; shift 3
-  local out rc=0
+  local out rc=0 match=0
   out="$("$TMP/zest-smc" "$@" 2>&1)" || rc=$?
-  if [ "$rc" = "$want_rc" ] && [ "${out#"$want_out"}" != "$out" ]; then pass "$name"
+  if [ "$EXACT" = 1 ]; then [ "$out" = "$want_out" ] && match=1
+  else [ "${out#"$want_out"}" != "$out" ] && match=1; fi
+  if [ "$rc" = "$want_rc" ] && [ "$match" = 1 ]; then pass "$name"
   else fail "$name (exit $rc, output: $out)"; fi
 }
+expect_exact() { EXACT=1; expect "$@"; EXACT=0; }
 
 if [ "$(id -u)" = "0" ]; then echo "run as a normal user: as root lowpowermode would really toggle" >&2; exit 2; fi
 
 swiftc -O "$SRC/main.swift" -o "$TMP/zest-smc"
 APP_IF="$(sed -n 's/^ *static let interface = \([0-9][0-9]*\)$/\1/p' "$ROOT/Sources/Zest/ChargeLimit/ChargeLimiter.swift")"
 if [ -n "$APP_IF" ]; then pass "app expects helper interface $APP_IF"; else fail "app expects a helper interface"; fi
-expect "probe answers with the app's interface" 0 "ok helper ${APP_IF:-missing}" probe
+expect_exact "probe answers with the app's interface" 0 "ok helper ${APP_IF:-missing}" probe
 expect "limit-get is gone" 2 "error unknown-command" limit-get
 expect "limit-set is gone" 2 "error unknown-command" limit-set 1
 expect "read is gone" 2 "error unknown-command" read CHWA
@@ -66,6 +72,11 @@ if cmp -s "$TMP/want" "$GRANT"; then pass "grant is exactly the four argument ve
 else fail "grant is exactly the four argument vectors"; fi
 if grep -qx "testuser ALL=(root) NOPASSWD: $DEST" "$GRANT"; then fail "no bare helper path in the grant"
 else pass "no bare helper path in the grant"; fi
+for bad in "$(printf 'x\nx ALL=(ALL) NOPASSWD: ALL')" "two words" "-n"; do
+  rc=0; bash "$SRC/install-helper.sh" --print-sudoers "$bad" > "$TMP/bad" 2>&1 || rc=$?
+  if [ "$rc" = 2 ] && ! grep -q NOPASSWD "$TMP/bad"; then pass "grant refuses user name: $(printf '%s' "$bad" | head -1)"
+  else fail "grant refuses user name: $(printf '%s' "$bad" | head -1) (exit $rc)"; fi
+done
 
 # Every line in Sources/ that names sudo is a comment, the process-name list that keeps
 # sudo out of the per-app energy table, or a `sudo -n` call checked below. Anything else

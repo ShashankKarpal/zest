@@ -150,5 +150,8 @@ struct ChargeLimitControls: View {
                     .font(.system(size: 11)).foregroundColor(Theme.amber).fixedSize(horizontal: false, vertical: true)
             }
         }
+        // Re-probe whenever the card is shown, so a re-install clears the warning without a
+        // relaunch (the agent keeps Zest running for days). One sudo round trip, off main.
+        .onAppear { limiter.detectHelper() }
     }
 }
