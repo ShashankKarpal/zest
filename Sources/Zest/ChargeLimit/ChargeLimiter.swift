@@ -9,6 +9,25 @@ enum ZestHelper {
     static let candidates = ["/usr/local/libexec/zest/zest-smc"]
     static var path: String? { candidates.first { FileManager.default.isExecutableFile(atPath: $0) } }
     static func quote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+
+    // The helper interface this app expects (zest-smc/main.swift `helperInterface`).
+    static let interface = 2
+
+    enum ProbeResult: Equatable { case unavailable, outdated, current }
+
+    // Classifies the output of `sudo -n <helper> probe`. A helper older than v3.1 answers
+    // "ok root" with no interface number; it was installed with a grant that allowed it
+    // any arguments as root, so it still works but needs a re-install.
+    static func probeResult(_ output: String) -> ProbeResult {
+        let line = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard line.hasPrefix("ok") else { return .unavailable }
+        let words = line.split(separator: " ")
+        if let i = words.firstIndex(of: "helper"), i + 1 < words.count,
+           let n = Int(words[i + 1]), n >= interface {
+            return .current
+        }
+        return .outdated
+    }
 }
 
 // Battery-care controller.
@@ -20,12 +39,13 @@ enum ZestHelper {
 // is deferred to macOS (System Settings > Battery, which the user already runs at 80%). That
 // is the safest option and requires no writes. Zest never touches the charge state.
 //
-// The helper is still used for Low Power Mode (pmset), which is verified and reversible.
-// The SMC read/write plumbing in the helper works (verified via the #KEY canary); if the
-// correct, verified M4 charge key is identified later, control can be re-enabled with no app
-// changes beyond pointing at that key.
+// The helper is used for Low Power Mode (pmset) only, which is verified and reversible.
+// Since v3.1 it carries no SMC code at all and its sudoers grant names only `probe` and
+// `lowpowermode 0|1`, so charge control could come back only with a new helper command, a
+// new grant line, and a re-install.
 final class ChargeLimiter: ObservableObject {
     @Published private(set) var helperAvailable = false        // probe ok => Low Power Mode works
+    @Published private(set) var helperOutdated = false         // pre-v3.1 helper and grant: re-install
     @Published private(set) var chargeControlSupported = false // never true on this model in this build
     @Published private(set) var status = "Battery care is managed by macOS (safest)."
     // Live Low Power Mode state, kept current by NSProcessInfoPowerStateDidChange so no view
@@ -58,12 +78,18 @@ final class ChargeLimiter: ObservableObject {
         }
         DispatchQueue.global(qos: .utility).async {
             let probe = Shell.run("sudo -n \(ZestHelper.quote(helper)) probe 2>&1", timeout: 4)
-            let ok = probe.contains("ok")
+            let result = ZestHelper.probeResult(probe)
             DispatchQueue.main.async {
-                self.helperAvailable = ok
-                self.status = ok
-                    ? "Battery care is managed by macOS (safest). Low Power Mode is available."
-                    : "Add the sudoers line for zest-smc to enable the Low Power Mode toggle (see README)."
+                self.helperAvailable = result != .unavailable
+                self.helperOutdated = result == .outdated
+                switch result {
+                case .current:
+                    self.status = "Battery care is managed by macOS (safest). Low Power Mode is available."
+                case .outdated:
+                    self.status = "The installed helper predates v3.1 and its sudoers entry lets it run as root with any arguments. Re-run zest-smc/install-helper.sh as root from a current clone (see README)."
+                case .unavailable:
+                    self.status = "Add the sudoers line for zest-smc to enable the Low Power Mode toggle (see README)."
+                }
             }
         }
     }

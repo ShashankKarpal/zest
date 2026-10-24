@@ -145,6 +145,10 @@ struct ChargeLimitControls: View {
             Text("Managed by macOS (System Settings > Battery). Intentionally not enabled in Zest.")
                 .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
             Button("Open macOS Battery settings") { limiter.openMacOSBatterySettings() }.font(.system(size: 11))
+            if limiter.helperOutdated {
+                Text(limiter.status)
+                    .font(.system(size: 11)).foregroundColor(Theme.amber).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

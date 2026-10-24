@@ -4,12 +4,14 @@
 #   bash zest-smc/test-helper.sh
 #
 # 1. Builds main.swift into a temp folder and runs it as the current user: the removed
-#    commands (limit-set, read, size) are refused as unknown, lowpowermode accepts only
-#    "0" or "1" and refuses to act without root, probe answers.
+#    commands (limit-get, limit-set, read, size) are refused as unknown, lowpowermode
+#    accepts only "0" or "1" and refuses to act without root, probe answers with the
+#    helper interface number, and that number equals ZestHelper.interface in the app.
 # 2. Prints the grant install-helper.sh would install (--print-sudoers, checked by visudo)
 #    and requires exactly the four argument vectors, with no bare helper path.
-# 3. Reads every `sudo -n` call in Sources/ and requires each one to be covered by that
-#    grant, so the app can never send a command the grant refuses.
+# 3. Reads every line of Sources/ that names sudo. Each `sudo -n` call must be covered by
+#    that grant, so the app can never send a command the grant refuses; any other use of
+#    sudo (a Process argument list, a split string) fails the test until it is listed here.
 # ZEST_SMC_DIR points the test at another copy of main.swift and install-helper.sh (used
 # to prove the test fails on the previous files). Exit 0 when every check passes.
 set -euo pipefail
@@ -36,7 +38,10 @@ expect() {
 if [ "$(id -u)" = "0" ]; then echo "run as a normal user: as root lowpowermode would really toggle" >&2; exit 2; fi
 
 swiftc -O "$SRC/main.swift" -o "$TMP/zest-smc"
-expect "probe answers" 0 "ok" probe
+APP_IF="$(sed -n 's/^ *static let interface = \([0-9][0-9]*\)$/\1/p' "$ROOT/Sources/Zest/ChargeLimit/ChargeLimiter.swift")"
+if [ -n "$APP_IF" ]; then pass "app expects helper interface $APP_IF"; else fail "app expects a helper interface"; fi
+expect "probe answers with the app's interface" 0 "ok helper ${APP_IF:-missing}" probe
+expect "limit-get is gone" 2 "error unknown-command" limit-get
 expect "limit-set is gone" 2 "error unknown-command" limit-set 1
 expect "read is gone" 2 "error unknown-command" read CHWA
 expect "size is gone" 2 "error unknown-command" size
@@ -62,9 +67,26 @@ else fail "grant is exactly the four argument vectors"; fi
 if grep -qx "testuser ALL=(root) NOPASSWD: $DEST" "$GRANT"; then fail "no bare helper path in the grant"
 else pass "no bare helper path in the grant"; fi
 
+# Every line in Sources/ that names sudo is a comment, the process-name list that keeps
+# sudo out of the per-app energy table, or a `sudo -n` call checked below. Anything else
+# is a sudo use this test cannot see, so it fails.
+other=0
+while IFS= read -r line; do
+  code="${line#*:*:}"
+  trimmed="$(printf '%s' "$code" | sed 's/^[[:space:]]*//')"
+  case "$trimmed" in
+    //*) continue ;;
+    *'"sudo", "zest-smc"'*) continue ;;
+    *'"sudo -n '*) continue ;;
+  esac
+  other=$((other + 1))
+  fail "unrecognized sudo use in ${line%%:*}: $trimmed"
+done < <(grep -rnw sudo "$ROOT/Sources")
+if [ "$other" = 0 ]; then pass "no sudo use outside the recognized forms"; fi
+
 # Every sudo call the app makes, as written in Sources/ (the helper's path is interpolated
 # from ZestHelper; the Low Power argument is a "0" or "1" variable).
-calls="$(grep -rhoE 'sudo -n [^"]*' "$ROOT/Sources" | sed -e 's/ 2>.*$//' -e 's/ *$//')"
+calls="$(grep -rhoE '"sudo -n [^"]*' "$ROOT/Sources" | sed -e 's/^"//' -e 's/ 2>.*$//' -e 's/ *$//')"
 n=0
 while IFS= read -r call; do
   [ -n "$call" ] || continue

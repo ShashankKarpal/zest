@@ -171,7 +171,7 @@ Settings live in `~/Library/Application Support/Zest/config.json`, created on fi
 
 Each of these is off until granted, and each is a deliberate choice.
 
-- **Low Power Mode toggle and true per-app powermetrics energy need root.** They run through the `zest-smc` helper, which is installed once to a root-owned path with a validated `sudoers` entry granting passwordless invocation of that helper and `powermetrics`. Until that entry exists, the app never calls it. Review `zest-smc/install-helper.sh` before running it.
+- **Low Power Mode toggle and true per-app powermetrics energy need root.** They run through the `zest-smc` helper, which is installed once to a root-owned path with a validated `sudoers` entry granting passwordless invocation of four fixed commands: the helper's `probe`, `lowpowermode 0` and `lowpowermode 1`, and `powermetrics` with one argument vector. Until that entry exists, the app never calls it. If the helper predates v3.1 (its entry allowed any arguments), the Charge Limit card in the Command Center says so and asks for a re-install. Review `zest-smc/install-helper.sh` before running it.
 - **Charge limit is deferred to the macOS 80 percent setting,** the safest option. Zest never writes charge state, and since v3.1 the helper has no command that could (the `limit-set` experiment is gone).
 
 ## Uninstall
