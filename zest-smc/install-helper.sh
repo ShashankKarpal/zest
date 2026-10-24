@@ -61,9 +61,10 @@ for d in /usr/local /usr/local/libexec "$DEST_DIR"; do
   fi
 done
 
-# Validate the grant BEFORE touching the helper: the app trusts the helper's interface
-# number to mean the matching grant is installed, so a new binary must never sit behind
-# an old grant because the new one failed validation.
+# Validate the grant, then install it BEFORE the helper: the app trusts the helper's
+# interface number to mean the matching grant is installed, so a new binary must never sit
+# behind an old grant. If a step fails part way, the narrow grant sits beside the old
+# binary instead, which answers without a number and is reported as outdated.
 TMP="$(mktemp)"
 sudoers_lines "$USER_NAME" > "$TMP"
 if ! visudo -cf "$TMP" >/dev/null 2>&1; then
@@ -72,8 +73,8 @@ if ! visudo -cf "$TMP" >/dev/null 2>&1; then
   exit 1
 fi
 
-install -d -o root -g wheel -m 755 "$DEST_DIR"
-install -o root -g wheel -m 755 "$BUILT_HELPER" "$DEST"
 install -o root -g wheel -m 440 "$TMP" /etc/sudoers.d/zest-smc
 rm -f "$TMP"
+install -d -o root -g wheel -m 755 "$DEST_DIR"
+install -o root -g wheel -m 755 "$BUILT_HELPER" "$DEST"
 echo "INSTALL_OK helper=$DEST sudoers=/etc/sudoers.d/zest-smc user=$USER_NAME"

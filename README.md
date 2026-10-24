@@ -125,7 +125,7 @@ Signed with an Apple Developer ID and notarized by Apple, so it opens without Ga
 
     cd zest-smc && ./build.sh && sudo bash install-helper.sh
 
-Read `install-helper.sh` first (about 70 lines). It installs one root-owned binary and a `sudoers` entry that allows exactly four commands without a password, each with fixed arguments: the helper's `probe`, `lowpowermode 0` and `lowpowermode 1`, and `powermetrics` with the argument vector Zest uses. Nothing else. `bash zest-smc/install-helper.sh --print-sudoers "$USER"` prints that entry without installing anything. If you installed the helper before v3.1, run the install again: the older entry allowed the helper with any arguments. To undo it: `sudo bash zest-smc/uninstall-helper.sh`. Without the helper, Zest falls back to a `ps`-based estimate for per-app energy and disables the Low Power toggle.
+Read `install-helper.sh` first (about 80 lines). It installs one root-owned binary and a `sudoers` entry that allows exactly four commands without a password, each with fixed arguments: the helper's `probe`, `lowpowermode 0` and `lowpowermode 1`, and `powermetrics` with the argument vector Zest uses. Nothing else. `bash zest-smc/install-helper.sh --print-sudoers "$USER"` prints that entry without installing anything. If you installed the helper before v3.1, run the install again: the older entry allowed the helper with any arguments. To undo it: `sudo bash zest-smc/uninstall-helper.sh`. Without the helper, Zest falls back to a `ps`-based estimate for per-app energy and disables the Low Power toggle.
 
 That helper is also why Zest cannot ship on the Mac App Store: the sandbox forbids both root helpers and `powermetrics`, so a notarized direct download is the correct distribution channel.
 

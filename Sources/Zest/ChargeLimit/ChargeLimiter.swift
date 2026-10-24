@@ -48,7 +48,6 @@ enum ZestHelper {
 final class ChargeLimiter: ObservableObject {
     @Published private(set) var helperAvailable = false        // probe ok => Low Power Mode works
     @Published private(set) var helperOutdated = false         // pre-v3.1 helper and grant: re-install
-    @Published private(set) var chargeControlSupported = false // never true on this model in this build
     @Published private(set) var status = "Battery care is managed by macOS (safest)."
     // Live Low Power Mode state, kept current by NSProcessInfoPowerStateDidChange so no view
     // ever has to ask the system (let alone a shell) while it renders.
@@ -75,6 +74,7 @@ final class ChargeLimiter: ObservableObject {
     func detectHelper() {
         guard let helper = ZestHelper.path else {
             helperAvailable = false
+            helperOutdated = false
             status = "Low Power Mode toggle needs the one-time helper install (see README)."
             return
         }
@@ -111,6 +111,5 @@ final class ChargeLimiter: ObservableObject {
     }
 
     // No-ops kept so the rest of the app compiles; Zest does not write charge keys here.
-    func topUpToFull() { openMacOSBatterySettings() }
     func restoreDefaults() {}
 }

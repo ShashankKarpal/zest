@@ -90,7 +90,7 @@ struct CommandCenterView: View {
                 ArcGauge(pct: Double(snap.percent), color: Theme.batteryColor(Double(snap.percent)), big: "\(snap.percent)%", small: snap.isCharging ? "CHARGING" : "ON BATTERY").frame(maxWidth: 300)
                 SectionHead(label: "POWER FLOW"); PowerFlowView(snap: snap)
                 Divider1(); BatteryHealthView(snap: snap, history: state.batteryHistory)
-                Divider1(); ChargeLimitControls(config: state.config, limiter: state.chargeLimiter) { state.config.save() }
+                Divider1(); ChargeLimitControls(config: state.config, limiter: state.chargeLimiter, reprobeOnAppear: true) { state.config.save() }
             }
         case .energy:
             EnergyInsightsView(energy: state.energy, battery: state.battery)

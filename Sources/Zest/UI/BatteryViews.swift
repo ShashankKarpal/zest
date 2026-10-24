@@ -135,6 +135,9 @@ struct DeviceLeaderRow: View {
 struct ChargeLimitControls: View {
     @ObservedObject var config: AppConfig
     @ObservedObject var limiter: ChargeLimiter
+    // The Command Center re-probes the helper when the card appears; the menu bar dropdown
+    // does not (it opens often, and each probe is a sudo round trip).
+    var reprobeOnAppear = false
     var onSave: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -150,8 +153,8 @@ struct ChargeLimitControls: View {
                     .font(.system(size: 11)).foregroundColor(Theme.amber).fixedSize(horizontal: false, vertical: true)
             }
         }
-        // Re-probe whenever the card is shown, so a re-install clears the warning without a
-        // relaunch (the agent keeps Zest running for days). One sudo round trip, off main.
-        .onAppear { limiter.detectHelper() }
+        // Re-probe when the Command Center shows the card, so a re-install clears the warning
+        // without a relaunch (the agent keeps Zest running for days). Off the main thread.
+        .onAppear { if reprobeOnAppear { limiter.detectHelper() } }
     }
 }
