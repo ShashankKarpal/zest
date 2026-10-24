@@ -10,7 +10,7 @@
 #
 # Signing: Developer ID with hardened runtime when ZEST_SIGN_IDENTITY is set,
 # the config is release, and that identity is in the keychain; ad hoc
-# otherwise. There is no default identity (CHANGELOG, Unreleased).
+# otherwise. There is no default identity (CHANGELOG, v3.1).
 #
 # `install` copies the finished bundle to ZEST_INSTALL_DIR (default
 # ~/Applications) with an atomic swap, so the copy a LaunchAgent points at is

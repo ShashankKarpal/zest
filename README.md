@@ -119,7 +119,7 @@ With Homebrew:
 
 Or download the `Zest-v<version>-macOS.zip` asset from the [latest release](https://github.com/ShashankKarpal/zest/releases/latest), unzip, and move `Zest.app` to `/Applications`. Its SHA-256 is in the release notes; the cask pins the same value.
 
-Signed with an Apple Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. No Xcode required. Release builds carry no build paths: `build.sh release` fails if the bundle contains a home folder path or the build user's name.
+Signed with an Apple Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. No Xcode required. Release builds carry no build paths: `build.sh release` fails if the bundle contains a home folder path or the build user's name as a path component.
 
 **Optional root helper (per-app energy and the Low Power Mode toggle):** the app itself never asks for a password. Those two features need `powermetrics`, which macOS only lets root run, so they stay off until you install the small helper yourself from a clone of this repo:
 

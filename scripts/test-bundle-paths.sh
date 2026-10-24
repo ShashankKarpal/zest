@@ -1,6 +1,7 @@
 #!/bin/bash
 # test-bundle-paths.sh: checks scripts/check-bundle-paths.sh on planted fixtures, so a
 # check that silently reads nothing cannot pass. Run by CI. Exit 0 when every case passes.
+# ZEST_PATH_CHECK points it at another copy of the check (used for the control run).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHECK="${ZEST_PATH_CHECK:-$HERE/check-bundle-paths.sh}"
@@ -31,9 +32,13 @@ case_ "home path in binary bytes fails" 1 "" "$TMP/path"
 case_ "home path fails on CI too" 1 true "$TMP/path"
 
 mkdir -p "$TMP/user/Contents/Resources"
-printf '\x00%s\x00' "$(id -un)" > "$TMP/user/Contents/Resources/blob"
-case_ "build user's name fails" 1 "" "$TMP/user"
-case_ "build user's name is skipped on CI" 0 true "$TMP/user"
+printf '\x00/private/var/%s/x\x00' "$(id -un)" > "$TMP/user/Contents/Resources/blob"
+case_ "build user's name as a path part fails" 1 "" "$TMP/user"
+case_ "build user's name as a path part fails on CI" 1 true "$TMP/user"
+
+mkdir -p "$TMP/bare/Contents/MacOS"
+printf '\x00%sPanelType\x00runner\x00' "$(id -un)" > "$TMP/bare/Contents/MacOS/Zest"
+case_ "bare user name inside a symbol passes" 0 "" "$TMP/bare"
 
 mkdir -p "$TMP/empty"
 case_ "empty folder is an error, not a pass" 2 "" "$TMP/empty"
@@ -44,6 +49,16 @@ printf '/Users/someone/' > "$TMP/locked/f"
 chmod 000 "$TMP/locked/f"
 case_ "unreadable file is an error, not a pass" 2 "" "$TMP/locked"
 chmod 600 "$TMP/locked/f"
+
+# A grep that fails (exit 2, as on an I/O error) must stop the check with exit 2, not
+# look like a clean file (0) or a leak (1).
+mkdir -p "$TMP/shim"
+printf '#!/bin/sh\nexit 2\n' > "$TMP/shim/grep"
+chmod 755 "$TMP/shim/grep"
+checks=$((checks + 1)); rc=0
+PATH="$TMP/shim:$PATH" bash "$CHECK" "$TMP/clean" >/dev/null 2>&1 || rc=$?
+if [ "$rc" = 2 ]; then echo "ok   grep error is an error, not a pass or a leak"
+else fails=$((fails + 1)); echo "FAIL grep error is an error, not a pass or a leak (exit $rc, want 2)"; fi
 
 echo "test-bundle-paths: $checks checks, $fails failed"
 [ "$fails" = 0 ]
