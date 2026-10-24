@@ -18,7 +18,9 @@ jobs:
         run: swift test
       - name: Root helper and sudoers grant
         run: bash zest-smc/test-helper.sh
-      - name: Release build and app assembly (ad hoc signed)
+      - name: Bundle path check on fixtures
+        run: bash scripts/test-bundle-paths.sh
+      - name: Release build and app assembly (ad hoc signed, path check inside build.sh)
         run: |
           bash build.sh release
           test -x Zest.app/Contents/MacOS/Zest

@@ -4,6 +4,10 @@
 #
 #   bash build.sh [release|debug] [install]
 #
+# Release builds strip the debug symbol table (it held every build path, finding F04) and
+# fail if scripts/check-bundle-paths.sh finds a home path or the build user's name anywhere
+# in the signed bundle.
+#
 # Signing: Developer ID with hardened runtime when ZEST_SIGN_IDENTITY is set,
 # the config is release, and that identity is in the keychain; ad hoc
 # otherwise. There is no default identity (CHANGELOG, Unreleased).
@@ -49,6 +53,11 @@ mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 cp "$BIN_PATH" "$APP/Contents/MacOS/$BIN_NAME"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [ "$CONFIG" = "release" ]; then
+  # Debug symbols only (N_SO and N_OSO entries carry absolute source and object paths);
+  # global symbols stay, so crash reports still name functions.
+  strip -S "$APP/Contents/MacOS/$BIN_NAME"
+fi
 
 # App icon is generated from the design system at build time; the repository
 # holds PNGs, never a binary icon blob.
@@ -69,6 +78,11 @@ if [ "$CONFIG" = "release" ] && [ -n "$IDENTITY" ] && security find-identity -v 
 else
   echo "==> Codesign: ad hoc (set ZEST_SIGN_IDENTITY for a Developer ID build)"
   codesign --force --deep --sign - "$APP" 2>/dev/null || echo "   (codesign skipped)"
+fi
+
+if [ "$CONFIG" = "release" ]; then
+  echo "==> Path check (no home folder path or build user name in the bundle)"
+  bash "$ROOT/scripts/check-bundle-paths.sh" "$APP"
 fi
 
 echo "==> Done: $APP"

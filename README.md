@@ -113,9 +113,13 @@
 
 **Requirements:** Apple Silicon, macOS 14 or later.
 
-Download `Zest-v3.0-macOS.zip` from [Releases](https://github.com/ShashankKarpal/zest/releases/latest), unzip, and move `Zest.app` to `/Applications`.
+With Homebrew:
 
-Signed with an Apple Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. No Xcode required. The v3.0 download is from July 2026; everything listed under Unreleased in [CHANGELOG.md](CHANGELOG.md) (alert history, event log, thermal readout, the energy pass, the widget panel gate) is on `main` and in the build-from-source path until v3.1 is notarized.
+    brew install --cask shashankkarpal/tap/zest
+
+Or download the `Zest-v<version>-macOS.zip` asset from the [latest release](https://github.com/ShashankKarpal/zest/releases/latest), unzip, and move `Zest.app` to `/Applications`. Its SHA-256 is in the release notes; the cask pins the same value.
+
+Signed with an Apple Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. No Xcode required. Release builds carry no build paths: `build.sh release` fails if the bundle contains a home folder path or the build user's name.
 
 **Optional root helper (per-app energy and the Low Power Mode toggle):** the app itself never asks for a password. Those two features need `powermetrics`, which macOS only lets root run, so they stay off until you install the small helper yourself from a clone of this repo:
 
@@ -127,11 +131,12 @@ That helper is also why Zest cannot ship on the Mac App Store: the sandbox forbi
 
 **Verify it yourself:**
 
-    ditto -x -k Zest-v3.0-macOS.zip .
+    shasum -a 256 Zest-v*-macOS.zip
+    ditto -x -k Zest-v*-macOS.zip .
     xcrun stapler validate Zest.app
     spctl -a -vvv Zest.app
 
-Expect `source=Notarized Developer ID`.
+Expect the SHA-256 from the release notes and `source=Notarized Developer ID`.
 
 ### Build from source
 
@@ -171,6 +176,8 @@ Each of these is off until granted, and each is a deliberate choice.
 
 ## Uninstall
 
+With Homebrew, `brew uninstall --cask zest` quits Zest, removes the app, and boots out and deletes the `com.zest.app` LaunchAgent if you installed one; `--zap` also removes the settings and history folder. Otherwise:
+
 1. Quit Zest and delete `Zest.app` (`/Applications` for the release download, `~/Applications` for `build.sh install`).
 2. If you installed the LaunchAgent: `bash scripts/uninstall-launchagent.sh` (otherwise a KeepAlive job would keep relaunching a missing app).
 3. If you installed the root helper: `sudo bash zest-smc/uninstall-helper.sh` removes the sudoers entry and the helper.
@@ -182,7 +189,7 @@ Each of these is off until granted, and each is a deliberate choice.
 Sources/Zest/       app: menu bar, alerts, battery, energy, devices, data (event log, exports), UI
 Tests/ZestTests/    unit tests (swift test); CI runs them plus a release build
 zest-smc/           privileged helper, its installer, and test-helper.sh
-scripts/            LaunchAgent installer and uninstaller
+scripts/            LaunchAgent installer and uninstaller, release path check and its test
 panels/             widget extraction (generated pipelines are gitignored)
 design/             brand assets, tokens, BRAND.md
 docs/               screenshots

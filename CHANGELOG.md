@@ -8,8 +8,10 @@ All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 - Privileged helper (`zest-smc`) for Low Power Mode toggle and true per-app powermetrics energy.
 - Ecosystem battery view, health history with capacity trendline, energy grading, Ubersicht panel embedding, local LM Studio digest.
 
-## Unreleased
+## v3.1
 
+- Release builds carry no build paths. The v3.0 binary held 76 absolute paths with the builder's home folder in its debug symbol table. `build.sh release` now strips debug symbols (`strip -S`; function names stay for crash reports) and runs `scripts/check-bundle-paths.sh`, which greps the raw bytes of every file in the signed bundle for `/Users/` and the build user's name and fails the build on any hit. `strings -a | grep /Users/` is not a valid check: on macOS 27 it printed 0 for a binary holding 87 such paths. `scripts/test-bundle-paths.sh` (run by CI) checks the check on planted fixtures.
+- Homebrew: `brew install --cask shashankkarpal/tap/zest`. `brew uninstall --cask zest` also boots out and removes the `com.zest.app` LaunchAgent, so a KeepAlive job is never left relaunching a deleted app.
 - Root helper trimmed to what the app sends. `zest-smc` loses `limit-set` (the SMC charge write; charge care stays with macOS), `read` and `size`, and `lowpowermode` accepts exactly `0` or `1`. The sudoers grant written by `install-helper.sh` names the exact argument vectors (`probe`, `lowpowermode 0`, `lowpowermode 1`, and the pinned `powermetrics` line) instead of the bare helper path, which allowed any arguments as root. Re-run `sudo bash zest-smc/install-helper.sh` to replace an older grant. `install-helper.sh --print-sudoers <user>` prints the grant without root, and `zest-smc/test-helper.sh` (run by CI) checks the helper, the grant, and that every `sudo -n` call in `Sources/` is covered by it.
 - Command Center > Alerts: the last 50 alerts Zest raised, newest first, with the ones quiet hours silenced marked as such, plus Clear. Persisted in `alerts-history.json` beside the config.
 - Energy history rolls hourly buckets older than seven days into UTC daily buckets (sums and sample counts add, so the 7d and 30d averages are unchanged; the 24 h sparkline keeps hourly resolution). The owner's file went from 4.6 MB (659 hourly buckets) to 1.6 MB (167 hourly plus 23 daily) with every sample accounted for.
