@@ -1,8 +1,13 @@
 #!/bin/bash
-# Installs the zest-smc helper to a root-owned path and grants passwordless invocation for
-# it plus powermetrics. Run as root (via the macOS admin prompt or `sudo bash`). Safe: it
-# validates the sudoers file in a temp location before installing it, so a syntax error can
-# never break sudo. No paths or usernames are hardcoded; everything is derived at runtime.
+# Installs the zest-smc helper to a root-owned path and grants passwordless invocation of
+# the exact commands Zest sends: the helper's `probe` and `lowpowermode 0|1`, and
+# powermetrics with one fixed argument vector. Run as root (via the macOS admin prompt or
+# `sudo bash`). Safe: it validates the sudoers file in a temp location before installing it,
+# so a syntax error can never break sudo. No paths or usernames are hardcoded; everything is
+# derived at runtime.
+#
+#   bash install-helper.sh --print-sudoers <user>   prints the grant it would install and
+#                                                    checks it with visudo; no root needed
 set -e
 
 # The real user, even when invoked through sudo / the admin prompt.
@@ -11,6 +16,30 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILT_HELPER="$SCRIPT_DIR/zest-smc"
 DEST_DIR="/usr/local/libexec/zest"
 DEST="$DEST_DIR/zest-smc"
+
+# One line per argument vector. sudoers matches a command with arguments exactly, so the
+# helper can be run as root only as `probe`, `lowpowermode 0` or `lowpowermode 1`; a bare
+# path would allow any arguments, the SMC write earlier builds carried included. The
+# powermetrics line is pinned to the vector in Sources/Zest/Energy/EnergySampler.swift: an
+# unrestricted grant would let any process running as the user run `powermetrics -o <path>`
+# as root, which creates or truncates arbitrary files (audit 2026-09-02).
+sudoers_lines() {
+  cat <<EOF
+$1 ALL=(root) NOPASSWD: $DEST probe
+$1 ALL=(root) NOPASSWD: $DEST lowpowermode 0
+$1 ALL=(root) NOPASSWD: $DEST lowpowermode 1
+$1 ALL=(root) NOPASSWD: /usr/bin/powermetrics --samplers tasks -n 1 -i 400
+EOF
+}
+
+if [ "${1:-}" = "--print-sudoers" ]; then
+  [ -n "${2:-}" ] || { echo "usage: bash install-helper.sh --print-sudoers <user>" >&2; exit 2; }
+  CHECK="$(mktemp)"
+  sudoers_lines "$2" | tee "$CHECK"
+  visudo -cf "$CHECK" >/dev/null || { rm -f "$CHECK"; echo "SUDOERS_INVALID" >&2; exit 1; }
+  rm -f "$CHECK"
+  exit 0
+fi
 
 if [ "$(id -u)" != "0" ]; then echo "must run as root"; exit 1; fi
 if [ ! -x "$BUILT_HELPER" ]; then echo "built helper not found at $BUILT_HELPER (run build.sh first)"; exit 1; fi
@@ -29,15 +58,8 @@ done
 install -d -o root -g wheel -m 755 "$DEST_DIR"
 install -o root -g wheel -m 755 "$BUILT_HELPER" "$DEST"
 
-# The powermetrics grant is pinned to the exact argument vector Zest uses
-# (Sources/Zest/Energy/EnergySampler.swift). An unrestricted grant would let
-# any process running as the user run `powermetrics -o <path>` as root, which
-# creates or truncates arbitrary files (audit 2026-09-02).
 TMP="$(mktemp)"
-cat > "$TMP" <<EOF
-$USER_NAME ALL=(root) NOPASSWD: $DEST
-$USER_NAME ALL=(root) NOPASSWD: /usr/bin/powermetrics --samplers tasks -n 1 -i 400
-EOF
+sudoers_lines "$USER_NAME" > "$TMP"
 
 if visudo -cf "$TMP" >/dev/null 2>&1; then
   install -o root -g wheel -m 440 "$TMP" /etc/sudoers.d/zest-smc

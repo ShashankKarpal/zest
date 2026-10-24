@@ -16,6 +16,8 @@ jobs:
         run: swift --version && xcodebuild -version
       - name: Unit tests
         run: swift test
+      - name: Root helper and sudoers grant
+        run: bash zest-smc/test-helper.sh
       - name: Release build and app assembly (ad hoc signed)
         run: |
           bash build.sh release

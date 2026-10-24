@@ -121,7 +121,7 @@ Signed with an Apple Developer ID and notarized by Apple, so it opens without Ga
 
     cd zest-smc && ./build.sh && sudo bash install-helper.sh
 
-Read `install-helper.sh` first (about 40 lines). It installs one root-owned binary and a `sudoers` entry that allows exactly two commands without a password: the helper, and `powermetrics` with the fixed argument vector Zest uses. Nothing else. To undo it: `sudo bash zest-smc/uninstall-helper.sh`. Without the helper, Zest falls back to a `ps`-based estimate for per-app energy and disables the Low Power toggle.
+Read `install-helper.sh` first (about 70 lines). It installs one root-owned binary and a `sudoers` entry that allows exactly four commands without a password, each with fixed arguments: the helper's `probe`, `lowpowermode 0` and `lowpowermode 1`, and `powermetrics` with the argument vector Zest uses. Nothing else. `bash zest-smc/install-helper.sh --print-sudoers "$USER"` prints that entry without installing anything. If you installed the helper before v3.1, run the install again: the older entry allowed the helper with any arguments. To undo it: `sudo bash zest-smc/uninstall-helper.sh`. Without the helper, Zest falls back to a `ps`-based estimate for per-app energy and disables the Low Power toggle.
 
 That helper is also why Zest cannot ship on the Mac App Store: the sandbox forbids both root helpers and `powermetrics`, so a notarized direct download is the correct distribution channel.
 
@@ -167,7 +167,7 @@ Settings live in `~/Library/Application Support/Zest/config.json`, created on fi
 Each of these is off until granted, and each is a deliberate choice.
 
 - **Low Power Mode toggle and true per-app powermetrics energy need root.** They run through the `zest-smc` helper, which is installed once to a root-owned path with a validated `sudoers` entry granting passwordless invocation of that helper and `powermetrics`. Until that entry exists, the app never calls it. Review `zest-smc/install-helper.sh` before running it.
-- **Charge limit is deferred to the macOS 80 percent setting,** the safest option. The shipped app never writes charge state; the helper binary contains a `limit-set` command from earlier experiments that no code path in the app calls.
+- **Charge limit is deferred to the macOS 80 percent setting,** the safest option. Zest never writes charge state, and since v3.1 the helper has no command that could (the `limit-set` experiment is gone).
 
 ## Uninstall
 
@@ -181,7 +181,7 @@ Each of these is off until granted, and each is a deliberate choice.
 ```
 Sources/Zest/       app: menu bar, alerts, battery, energy, devices, data (event log, exports), UI
 Tests/ZestTests/    unit tests (swift test); CI runs them plus a release build
-zest-smc/           privileged helper and its installer
+zest-smc/           privileged helper, its installer, and test-helper.sh
 scripts/            LaunchAgent installer and uninstaller
 panels/             widget extraction (generated pipelines are gitignored)
 design/             brand assets, tokens, BRAND.md
@@ -192,7 +192,7 @@ notarize.sh         notarize, staple and zip a release build
 
 ## Privacy
 
-Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for two fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Ubersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings. The optional event log writes a plain text file to a folder you choose and nowhere else.
+Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for four fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Ubersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings. The optional event log writes a plain text file to a folder you choose and nowhere else.
 
 ## License
 

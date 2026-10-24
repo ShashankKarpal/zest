@@ -1,0 +1,86 @@
+#!/bin/bash
+# test-helper.sh: checks the privileged helper and its sudoers grant without root.
+#
+#   bash zest-smc/test-helper.sh
+#
+# 1. Builds main.swift into a temp folder and runs it as the current user: the removed
+#    commands (limit-set, read, size) are refused as unknown, lowpowermode accepts only
+#    "0" or "1" and refuses to act without root, probe answers.
+# 2. Prints the grant install-helper.sh would install (--print-sudoers, checked by visudo)
+#    and requires exactly the four argument vectors, with no bare helper path.
+# 3. Reads every `sudo -n` call in Sources/ and requires each one to be covered by that
+#    grant, so the app can never send a command the grant refuses.
+# ZEST_SMC_DIR points the test at another copy of main.swift and install-helper.sh (used
+# to prove the test fails on the previous files). Exit 0 when every check passes.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+SRC="${ZEST_SMC_DIR:-$HERE}"
+DEST="/usr/local/libexec/zest/zest-smc"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+fails=0
+checks=0
+pass() { checks=$((checks + 1)); echo "ok   $1"; }
+fail() { checks=$((checks + 1)); fails=$((fails + 1)); echo "FAIL $1"; }
+
+# expect <name> <want exit> <want output prefix> <args...>
+expect() {
+  local name="$1" want_rc="$2" want_out="$3"; shift 3
+  local out rc=0
+  out="$("$TMP/zest-smc" "$@" 2>&1)" || rc=$?
+  if [ "$rc" = "$want_rc" ] && [ "${out#"$want_out"}" != "$out" ]; then pass "$name"
+  else fail "$name (exit $rc, output: $out)"; fi
+}
+
+if [ "$(id -u)" = "0" ]; then echo "run as a normal user: as root lowpowermode would really toggle" >&2; exit 2; fi
+
+swiftc -O "$SRC/main.swift" -o "$TMP/zest-smc"
+expect "probe answers" 0 "ok" probe
+expect "limit-set is gone" 2 "error unknown-command" limit-set 1
+expect "read is gone" 2 "error unknown-command" read CHWA
+expect "size is gone" 2 "error unknown-command" size
+expect "lowpowermode refuses 2" 2 "error bad-arg" lowpowermode 2
+expect "lowpowermode refuses no argument" 2 "error bad-arg" lowpowermode
+expect "lowpowermode refuses extra arguments" 2 "error bad-arg" lowpowermode 1 extra
+expect "lowpowermode needs root" 1 "error not-root" lowpowermode 1
+
+GRANT="$TMP/grant"
+if bash "$SRC/install-helper.sh" --print-sudoers testuser > "$GRANT" 2>&1; then
+  pass "grant passes visudo"
+else
+  fail "grant passes visudo ($(head -1 "$GRANT"))"
+fi
+cat > "$TMP/want" <<WANT
+testuser ALL=(root) NOPASSWD: $DEST probe
+testuser ALL=(root) NOPASSWD: $DEST lowpowermode 0
+testuser ALL=(root) NOPASSWD: $DEST lowpowermode 1
+testuser ALL=(root) NOPASSWD: /usr/bin/powermetrics --samplers tasks -n 1 -i 400
+WANT
+if cmp -s "$TMP/want" "$GRANT"; then pass "grant is exactly the four argument vectors"
+else fail "grant is exactly the four argument vectors"; fi
+if grep -qx "testuser ALL=(root) NOPASSWD: $DEST" "$GRANT"; then fail "no bare helper path in the grant"
+else pass "no bare helper path in the grant"; fi
+
+# Every sudo call the app makes, as written in Sources/ (the helper's path is interpolated
+# from ZestHelper; the Low Power argument is a "0" or "1" variable).
+calls="$(grep -rhoE 'sudo -n [^"]*' "$ROOT/Sources" | sed -e 's/ 2>.*$//' -e 's/ *$//')"
+n=0
+while IFS= read -r call; do
+  [ -n "$call" ] || continue
+  n=$((n + 1))
+  case "$call" in
+    'sudo -n \(ZestHelper.quote(helper)) probe') argv=("$DEST probe") ;;
+    'sudo -n \(ZestHelper.quote(helper)) lowpowermode \(target)') argv=("$DEST lowpowermode 0" "$DEST lowpowermode 1") ;;
+    'sudo -n /usr/bin/powermetrics '*) argv=("${call#sudo -n }") ;;
+    *) fail "unknown sudo call in Sources: $call"; continue ;;
+  esac
+  for a in "${argv[@]}"; do
+    if grep -qxF "testuser ALL=(root) NOPASSWD: $a" "$GRANT"; then pass "grant covers: $a"
+    else fail "grant covers: $a"; fi
+  done
+done <<< "$calls"
+if [ "$n" -ge 3 ]; then pass "read $n sudo calls in Sources"; else fail "read $n sudo calls in Sources (expected at least 3)"; fi
+
+echo "test-helper: $checks checks, $fails failed"
+[ "$fails" = 0 ]
