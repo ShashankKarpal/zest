@@ -5,6 +5,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHECK="${ZEST_PATH_CHECK:-$HERE/check-bundle-paths.sh}"
+if [ "$(id -u)" = "0" ]; then echo "run as a normal user: root reads a chmod 000 file" >&2; exit 2; fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 fails=0
@@ -31,7 +32,11 @@ case_ "home path in binary bytes fails" 1 "$TMP/path"
 
 mkdir -p "$TMP/user/Contents/Resources"
 printf '\x00/private/var/%s/x\x00' "$(id -un)" > "$TMP/user/Contents/Resources/blob"
-case_ "build user's name as a folder fails" 1 "$TMP/user"
+case "$(id -un)" in
+  usr|bin|sbin|etc|var|tmp|opt|dev|cores|private|System|Library|Applications|Volumes|Users)
+    echo "skip build user's name as a folder fails (login is a system folder name)" ;;
+  *) case_ "build user's name as a folder fails" 1 "$TMP/user" ;;
+esac
 
 mkdir -p "$TMP/bare/Contents/MacOS"
 # The name without a following slash: a type name, and a path that only starts with it

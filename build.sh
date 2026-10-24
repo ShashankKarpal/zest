@@ -77,10 +77,14 @@ if [ "$CONFIG" = "release" ] && [ -n "$IDENTITY" ] && security find-identity -v 
   codesign --verify --strict --verbose=2 "$APP"
 else
   echo "==> Codesign: ad hoc (set ZEST_SIGN_IDENTITY for a Developer ID build)"
-  # Strict: a release binary was changed by strip after the linker signed it, so a failed
-  # re-sign would leave an app the kernel refuses to launch.
-  codesign --force --deep --sign - "$APP"
-  codesign --verify --strict "$APP"
+  if [ "$CONFIG" = "release" ]; then
+    # Strict: strip changed the binary after the linker signed it, so a failed re-sign
+    # would leave an app the kernel refuses to launch.
+    codesign --force --deep --sign - "$APP"
+    codesign --verify --strict "$APP"
+  else
+    codesign --force --deep --sign - "$APP" 2>/dev/null || echo "   (codesign skipped)"
+  fi
 fi
 
 if [ "$CONFIG" = "release" ]; then
