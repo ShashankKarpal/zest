@@ -41,18 +41,15 @@ final class BatteryHistory: ObservableObject {
 
     // Pure function over a sample series so it can be tested without touching disk.
     static func projection(of samples: [Sample]) -> (perMonthCycles: Double?, monthsTo80: Int?) {
-        let capPoints = samples.compactMap { s -> (Double, Double)? in
+        let capPoints = samples.compactMap { s -> (ts: Double, value: Double)? in
             guard let c = s.maxCapacity else { return nil }
             return (s.ts, Double(c))
         }
-        guard capPoints.count >= 2, let first = capPoints.first, let last = capPoints.last else { return (nil, nil) }
-        let days = max(1, (last.0 - first.0) / 86400)
-        // capacity slope in points per day
-        let slope = (last.1 - first.1) / days
+        guard let fit = capacityTrend(capPoints) else { return (nil, nil) }
         var monthsTo80: Int? = nil
-        if slope < -0.0001 {
-            let remaining = last.1 - 80
-            let daysTo80 = remaining / (-slope)
+        if fit.slope < -0.0001 {
+            let remaining = fit.now - 80
+            let daysTo80 = remaining / (-fit.slope)
             if daysTo80 > 0 { monthsTo80 = Int((daysTo80 / 30).rounded()) }
         }
         // cycles per month
@@ -63,6 +60,26 @@ final class BatteryHistory: ObservableObject {
             if months > 0.1 { perMonth = (cl.1 - cf.1) / months }
         }
         return (perMonth, monthsTo80)
+    }
+
+    // Least-squares line through every (time, capacity) point: the slope in points per day
+    // and the line's value at the newest point. The projection used to draw its line through
+    // the first and last samples only, so one odd reading at either end set the whole
+    // projection (audit Z-B11). Nil with fewer than two points or no spread in time.
+    static func capacityTrend(_ points: [(ts: Double, value: Double)]) -> (slope: Double, now: Double)? {
+        guard points.count >= 2, let t0 = points.map(\.ts).min(), let tNew = points.map(\.ts).max() else { return nil }
+        let xs = points.map { ($0.ts - t0) / 86400 }
+        let n = Double(points.count)
+        let meanX = xs.reduce(0, +) / n
+        let meanY = points.map(\.value).reduce(0, +) / n
+        var sxx = 0.0, sxy = 0.0
+        for (x, p) in zip(xs, points) {
+            sxx += (x - meanX) * (x - meanX)
+            sxy += (x - meanX) * (p.value - meanY)
+        }
+        guard sxx > 0 else { return nil }
+        let slope = sxy / sxx
+        return (slope, meanY + slope * ((tNew - t0) / 86400 - meanX))
     }
 
     // UTC day keys since 2026-09-05 (audit Z-B9); the old local-zone key would have moved

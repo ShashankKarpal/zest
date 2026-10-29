@@ -77,6 +77,29 @@ final class BatteryMathTests: XCTestCase {
         XCTAssertEqual(p.perMonthCycles ?? -1, 10.0, accuracy: 0.05)
     }
 
+    // Audit Z-B11. Capacity fell one point a month for six months, but the very first stored
+    // reading was low (95). A line through the first and last samples only is flat, so no
+    // date was shown. The least-squares line through all seven: slope -300/25200 points a
+    // day, 96.07 at the newest sample, 1350 days to 80, so 45 months.
+    func testProjectionFitsEverySampleNotJustTheEnds() {
+        let caps = [95, 100, 99, 98, 97, 96, 95]
+        let series = caps.enumerated().map { i, cap in
+            sample(day: "m\(i)", daysAgo: Double(6 - i) * 30, cap: cap, cycles: nil)
+        }
+        XCTAssertEqual(BatteryHistory.projection(of: series).monthsTo80, 45)
+    }
+
+    func testProjectionIgnoresOneLowReadingAtTheEnd() {
+        // Exactly one point a month from 99 for ten months, then a one-day low reading (85)
+        // as the newest sample. First-and-last made that 4 months; the fit says 7, nearer
+        // the ten-month trend.
+        var series = (0..<10).map { i in
+            sample(day: "m\(i)", daysAgo: Double(10 - i) * 30 + 1, cap: 99 - i, cycles: nil)
+        }
+        series.append(sample(day: "m10", daysAgo: 0, cap: 85, cycles: nil))
+        XCTAssertEqual(BatteryHistory.projection(of: series).monthsTo80, 7)
+    }
+
     func testProjectionFlatCapacityHasNoDate() {
         let p = BatteryHistory.projection(of: [
             sample(day: "2026-08-01", daysAgo: 30, cap: 92, cycles: 50),
