@@ -50,7 +50,8 @@ final class StatusItemController {
                     button.title = ""
                     button.imagePosition = .imageOnly
                 }
-            })
+            },
+            canDraw: { [unowned self] in self.statusItem.button != nil })
         iconUpdater.updateNow()
         screensObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.iconUpdater.invalidate()

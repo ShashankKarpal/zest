@@ -40,6 +40,7 @@ final class MenuBarIconUpdater {
     private let current: () -> MenuBarIcon
     private let setImage: (MenuBarIcon.Glyph) -> Void
     private let setTitle: (String?) -> Void
+    private let canDraw: () -> Bool
     private(set) var shown: MenuBarIcon?
     private var pending = false
 
@@ -47,12 +48,14 @@ final class MenuBarIconUpdater {
          schedule: @escaping Scheduler = { delay, work in DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work) },
          current: @escaping () -> MenuBarIcon,
          setImage: @escaping (MenuBarIcon.Glyph) -> Void,
-         setTitle: @escaping (String?) -> Void) {
+         setTitle: @escaping (String?) -> Void,
+         canDraw: @escaping () -> Bool = { true }) {
         self.interval = interval
         self.schedule = schedule
         self.current = current
         self.setImage = setImage
         self.setTitle = setTitle
+        self.canDraw = canDraw
     }
 
     // The first request schedules one update; requests before it fires ride along, and the
@@ -74,7 +77,10 @@ final class MenuBarIconUpdater {
         setNeedsUpdate()
     }
 
+    // With nothing to draw into (no status button), nothing is recorded as shown, so the
+    // next request draws in full.
     func updateNow() {
+        guard canDraw() else { return }
         let next = current()
         if next.glyph != shown?.glyph { setImage(next.glyph) }
         if shown == nil || next.title != shown?.title { setTitle(next.title) }

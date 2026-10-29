@@ -19,11 +19,13 @@ final class MenuBarIconTests: XCTestCase {
         var title: String? = nil
         var images: [MenuBarIcon.Glyph] = []
         var titles: [String?] = []
+        var buttonExists = true
         lazy var updater = MenuBarIconUpdater(
             schedule: { [unowned self] in self.scheduler.schedule($0, $1) },
             current: { [unowned self] in MenuBarIcon(snapshot: self.snapshot, style: self.style, title: self.title) },
             setImage: { [unowned self] in self.images.append($0) },
-            setTitle: { [unowned self] in self.titles.append($0) })
+            setTitle: { [unowned self] in self.titles.append($0) },
+            canDraw: { [unowned self] in self.buttonExists })
 
         init() {
             snapshot.percent = 80
@@ -81,6 +83,21 @@ final class MenuBarIconTests: XCTestCase {
         XCTAssertEqual(h.titles.count, 2)
         h.change()
         XCTAssertEqual(h.images.count, 2)
+    }
+
+    // Review leftover of 2026-10-29: with no status button the update drew nothing but
+    // still recorded the icon as shown, so an unchanged icon was never drawn later.
+    func testNothingIsRecordedAsShownWithoutAButton() {
+        let h = Harness()
+        h.buttonExists = false
+        h.updater.updateNow()
+        XCTAssertTrue(h.images.isEmpty)
+        XCTAssertNil(h.updater.shown, "nothing was drawn, so nothing is shown")
+
+        h.buttonExists = true
+        h.change()
+        XCTAssertEqual(h.images.count, 1, "the same icon is drawn once there is a button")
+        XCTAssertEqual(h.titles.count, 1)
     }
 
     func testPercentChangeSetsTheImageOnly() {
