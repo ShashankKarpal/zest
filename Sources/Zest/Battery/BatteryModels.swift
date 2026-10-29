@@ -11,6 +11,7 @@ struct BatterySnapshot: Equatable {
 
     // Detail (ioreg AppleSmartBattery)
     var temperatureC: Double? = nil
+    var temperatureUnavailable = false       // no source on this macOS (registry and SMC both silent)
     var voltageV: Double? = nil
     var amperageMA: Int? = nil               // signed, negative = discharging
     var designCapacityMAh: Int? = nil

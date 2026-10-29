@@ -12,8 +12,9 @@ struct BatteryHealthView: View {
                 Tile(label: "MAX CAPACITY", value: snap.maxCapacityPercent.map { "\($0)%" } ?? "--",
                      color: capColor(snap.maxCapacityPercent))
                 Tile(label: "CYCLES", value: snap.cycleCount.map { "\($0)" } ?? "--")
-                Tile(label: "TEMP", value: snap.temperatureC.map { String(format: "%.1f°C", $0) } ?? "--",
-                     color: (snap.temperatureC ?? 0) >= 35 ? Theme.orange : Theme.text)
+                Tile(label: "TEMP", value: snap.temperatureC.map { String(format: "%.1f°C", $0) } ?? (snap.temperatureUnavailable ? "n/a" : "--"),
+                     color: (snap.temperatureC ?? 0) >= 35 ? Theme.orange : Theme.text,
+                     sub: snap.temperatureUnavailable ? "Not available on this macOS" : nil)
                 Tile(label: "CONDITION", value: snap.condition ?? "--",
                      color: (snap.condition == "Normal") ? Theme.green : Theme.orange)
             }

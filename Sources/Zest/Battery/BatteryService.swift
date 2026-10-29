@@ -95,13 +95,31 @@ final class BatteryService: ObservableObject {
         guard IORegistryEntryCreateCFProperties(entry, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
               let dict = props?.takeRetainedValue() as? [String: Any] else { return }
         lastRegistry = dict
+        Self.apply(registry: dict, to: &snap)
+        if snap.temperatureC == nil {
+            snap.temperatureC = smc?.batteryTemperature()
+            snap.temperatureUnavailable = snap.temperatureC == nil
+        }
+    }
 
+    // Created on first use; nil when AppleSMC cannot be opened (the temperature then shows
+    // as unavailable).
+    private lazy var smc: SMCReader? = SMCReader()
+
+    // Registry dictionary to snapshot fields. Pure, so both layouts are testable.
+    //
+    // macOS 27 moved DesignCapacity into the BatteryData sub-dictionary and dropped
+    // AppleRawMaxCapacity (its value is BatteryData.FullChargeCapacity) and Temperature
+    // (no live temperature key is left; BatteryService falls back to the SMC sensors).
+    // The top-level keys are still read first for older macOS.
+    static func apply(registry dict: [String: Any], to snap: inout BatterySnapshot) {
+        let data = dict["BatteryData"] as? [String: Any] ?? [:]
         if let t = dict["Temperature"] as? Int { snap.temperatureC = Double(t) / 100.0 }
         if let v = dict["Voltage"] as? Int { snap.voltageV = Double(v) / 1000.0 }
         if let a = dict["InstantAmperage"] as? Int { snap.amperageMA = signedAmperage(a) }
         else if let a = dict["Amperage"] as? Int { snap.amperageMA = signedAmperage(a) }
-        if let d = dict["DesignCapacity"] as? Int { snap.designCapacityMAh = d }
-        if let m = dict["AppleRawMaxCapacity"] as? Int { snap.rawMaxCapacityMAh = m }
+        if let d = (dict["DesignCapacity"] as? Int) ?? (data["DesignCapacity"] as? Int) { snap.designCapacityMAh = d }
+        if let m = (dict["AppleRawMaxCapacity"] as? Int) ?? (data["FullChargeCapacity"] as? Int) { snap.rawMaxCapacityMAh = m }
         if let ext = dict["ExternalConnected"] as? Bool { snap.isACPower = ext }
         if let ch = dict["IsCharging"] as? Bool { snap.isCharging = ch }
         if let full = dict["FullyCharged"] as? Bool { snap.fullyCharged = full }
@@ -115,7 +133,7 @@ final class BatteryService: ObservableObject {
     }
 
     // IOKit stores InstantAmperage as an unsigned 64-bit value; large values are negative.
-    private func signedAmperage(_ raw: Int) -> Int {
+    private static func signedAmperage(_ raw: Int) -> Int {
         if raw > Int(Int32.max) { return raw - Int(UInt32.max) - 1 }
         return raw
     }
