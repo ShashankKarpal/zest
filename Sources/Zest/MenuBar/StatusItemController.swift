@@ -38,9 +38,10 @@ final class StatusItemController {
             DispatchQueue.main.async {
                 guard let self, !self.popover.isShown else { return }
                 self.popover.contentViewController = nil
-                // Zest was activated for the dropdown; with no window of its own left open,
-                // hand the focus back to the app that had it.
-                if NSApp.isActive, !NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) }) {
+                // The dropdown activated Zest; with no window of its own left open, hand the
+                // focus back to the app that had it.
+                if self.dismissal.shouldHandBackFocus(
+                    ownWindowVisible: NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) })) {
                     NSApp.deactivate()
                 }
             }

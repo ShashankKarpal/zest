@@ -11,15 +11,17 @@ final class PopoverDismissalTests: XCTestCase {
         var local: [UInt64: (NSEvent) -> NSEvent?] = [:]
         var installed = 0, removed = 0, activations = 0
         var clock = Date(timeIntervalSince1970: 1000)
-        var pointer = NSPoint(x: 10, y: 10)            // where the mouse is, screen coordinates
+        var pointer = NSPoint(x: 10, y: 10)            // where the click is, screen coordinates
+        var appActive = false
         let dropdown = NSRect(x: 1765, y: 260, width: 386, height: 666)
         lazy var dismissal = PopoverDismissal(
             addGlobal: { [unowned self] mask, h in self.installed += 1; self.global[mask.rawValue] = h; return "g\(self.installed)" },
             addLocal: { [unowned self] mask, h in self.installed += 1; self.local[mask.rawValue] = h; return "l\(self.installed)" },
             removeMonitor: { [weak self] _ in self?.removed += 1 },   // also runs from deinit
-            activate: { [unowned self] in self.activations += 1 },
+            activate: { [unowned self] in self.activations += 1; self.appActive = true },
             now: { [unowned self] in self.clock },
-            mouseLocation: { [unowned self] in self.pointer })
+            locate: { [unowned self] _ in self.pointer },
+            isActive: { [unowned self] in self.appActive })
         func start(_ close: @escaping () -> Void) { dismissal.start(frame: { [unowned self] in self.dropdown }, close: close) }
     }
 
@@ -90,6 +92,32 @@ final class PopoverDismissalTests: XCTestCase {
         XCTAssertFalse(f.dismissal.isWatching)
         f.dismissal.stop()
         XCTAssertEqual(f.installed, f.removed, "a second stop removes nothing twice")
+    }
+
+    // Review round 1: focus went back on every close, even when Zest was already the
+    // active app before the dropdown opened.
+    func testFocusGoesBackOnlyWhenTheDropdownActivatedZest() {
+        let f = Fakes()
+        f.start {}
+        XCTAssertTrue(f.dismissal.shouldHandBackFocus(ownWindowVisible: false))
+        XCTAssertFalse(f.dismissal.shouldHandBackFocus(ownWindowVisible: true), "an open Zest window keeps the focus")
+        f.appActive = false
+        XCTAssertFalse(f.dismissal.shouldHandBackFocus(ownWindowVisible: false), "an outside click already moved it")
+
+        let g = Fakes()
+        g.appActive = true                             // Zest was active before the dropdown opened
+        g.start {}
+        XCTAssertFalse(g.dismissal.shouldHandBackFocus(ownWindowVisible: false))
+    }
+
+    // Review round 1: the click is placed where it happened, from the event, not where the
+    // pointer is when the handler runs. Quartz has its origin top left, AppKit bottom left.
+    func testClickPositionComesFromTheEvent() throws {
+        guard let main = NSScreen.screens.first else { throw XCTSkip("no display") }
+        let cg = try XCTUnwrap(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                                       mouseCursorPosition: CGPoint(x: 120, y: 30), mouseButton: .left))
+        let event = try XCTUnwrap(NSEvent(cgEvent: cg))
+        XCTAssertEqual(PopoverDismissal.screenPoint(of: event), NSPoint(x: 120, y: main.frame.maxY - 30))
     }
 
     func testTheClickThatClosedItDoesNotReopenIt() {

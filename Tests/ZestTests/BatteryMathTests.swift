@@ -100,6 +100,16 @@ final class BatteryMathTests: XCTestCase {
         XCTAssertEqual(BatteryHistory.projection(of: series).monthsTo80, 7)
     }
 
+    // Review round 1: daily samples can sit minutes apart across midnight UTC. Under a day of
+    // spread gives no projection (the old line clamped it to a day; a bare fit gave 0 months).
+    func testProjectionNeedsADayOfSpread() {
+        let p = BatteryHistory.projection(of: [
+            sample(day: "2026-10-28", daysAgo: 4.0 / 1440, cap: 100, cycles: 10),
+            sample(day: "2026-10-29", daysAgo: 0, cap: 99, cycles: 10)
+        ])
+        XCTAssertNil(p.monthsTo80)
+    }
+
     func testProjectionFlatCapacityHasNoDate() {
         let p = BatteryHistory.projection(of: [
             sample(day: "2026-08-01", daysAgo: 30, cap: 92, cycles: 50),

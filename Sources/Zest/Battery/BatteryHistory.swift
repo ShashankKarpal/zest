@@ -65,7 +65,9 @@ final class BatteryHistory: ObservableObject {
     // Least-squares line through every (time, capacity) point: the slope in points per day
     // and the line's value at the newest point. The projection used to draw its line through
     // the first and last samples only, so one odd reading at either end set the whole
-    // projection (audit Z-B11). Nil with fewer than two points or no spread in time.
+    // projection (audit Z-B11). Nil with fewer than two points or under a day between the
+    // oldest and newest: the old line clamped that gap to one day, and two daily samples
+    // can sit minutes apart (23:58 and 00:02 UTC), which would make the line near vertical.
     static func capacityTrend(_ points: [(ts: Double, value: Double)]) -> (slope: Double, now: Double)? {
         guard points.count >= 2, let t0 = points.map(\.ts).min(), let tNew = points.map(\.ts).max() else { return nil }
         let xs = points.map { ($0.ts - t0) / 86400 }
@@ -77,7 +79,7 @@ final class BatteryHistory: ObservableObject {
             sxx += (x - meanX) * (x - meanX)
             sxy += (x - meanX) * (p.value - meanY)
         }
-        guard sxx > 0 else { return nil }
+        guard sxx > 0, tNew - t0 >= 86400 else { return nil }
         let slope = sxy / sxx
         return (slope, meanY + slope * ((tNew - t0) / 86400 - meanX))
     }

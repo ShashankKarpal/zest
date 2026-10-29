@@ -24,6 +24,19 @@ final class SingleInstanceTests: XCTestCase {
                        "no other copy: run, and report why the lock is missing")
     }
 
+    // Review round 1: a lock call that fails for another reason than "already locked" (a
+    // filesystem without flock support) used to exit as if another copy held the lock.
+    func testOnlyAHeldLockMeansADuplicateWithoutAsking() {
+        let path = dir.appendingPathComponent("zest.lock").path
+        let unsupported: (Int32) -> Int32 = { _ in errno = ENOTSUP; return -1 }
+        XCTAssertEqual(SingleInstance.acquire(lockPath: path, otherCopyRunning: { false }, lock: unsupported), .unlocked(ENOTSUP))
+        XCTAssertEqual(SingleInstance.acquire(lockPath: path, otherCopyRunning: { true }, lock: unsupported), .duplicate)
+        var asked = false
+        let held: (Int32) -> Int32 = { _ in errno = EWOULDBLOCK; return -1 }
+        XCTAssertEqual(SingleInstance.acquire(lockPath: path, otherCopyRunning: { asked = true; return false }, lock: held), .duplicate)
+        XCTAssertFalse(asked, "a held lock decides on its own")
+    }
+
     func testTheLockDecidesWhileItCanBeOpened() {
         let path = dir.appendingPathComponent("zest.lock").path
         var asked = false

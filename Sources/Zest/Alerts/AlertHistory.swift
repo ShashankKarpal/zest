@@ -38,8 +38,13 @@ final class AlertHistory: ObservableObject {
     }
 
     func record(title: String, subtitle: String, colorHex: UInt32, suppressed: Bool, at date: Date = Date()) {
-        entries = Self.collapsed([Entry(ts: date.timeIntervalSince1970, title: title, subtitle: subtitle,
-                                        colorHex: colorHex, suppressed: suppressed)] + entries)
+        let entry = Entry(ts: date.timeIntervalSince1970, title: title, subtitle: subtitle,
+                          colorHex: colorHex, suppressed: suppressed)
+        if let top = entries.first, top.isRepeat(of: entry) {
+            entries[0] = Self.merged(newer: entry, into: top)
+        } else {
+            entries.insert(entry, at: 0)
+        }
         if entries.count > Self.capacity { entries.removeLast(entries.count - Self.capacity) }
         save()
     }
@@ -53,18 +58,24 @@ final class AlertHistory: ObservableObject {
         return Array(collapsed(sorted).prefix(capacity))
     }
 
-    // Folds each run of back-to-back repeats (newest first) into its newest row, which keeps
-    // its id, so a row on screen stays the same row as it counts up.
+    // Folds each run of back-to-back repeats (newest first) into one row.
     static func collapsed(_ newestFirst: [Entry]) -> [Entry] {
         var out: [Entry] = []
         for e in newestFirst {
             guard let newer = out.last, newer.isRepeat(of: e) else { out.append(e); continue }
-            var row = newer
-            row.repeats = newer.times + e.times
-            row.firstTs = min(newer.firstTs ?? newer.ts, e.firstTs ?? e.ts)
-            out[out.count - 1] = row
+            out[out.count - 1] = merged(newer: newer, into: e)
         }
         return out
+    }
+
+    // One row for a repeat: the older row's id, so a row on screen stays the same row as it
+    // counts up; the newer time; both counts; the earliest first time.
+    static func merged(newer: Entry, into older: Entry) -> Entry {
+        var row = older
+        row.ts = max(newer.ts, older.ts)
+        row.repeats = newer.times + older.times
+        row.firstTs = min(newer.firstTs ?? newer.ts, older.firstTs ?? older.ts)
+        return row
     }
 
     private func load() {

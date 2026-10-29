@@ -60,10 +60,16 @@ final class AlertHistoryTests: XCTestCase {
         XCTAssertEqual(row?.firstDate, Date(timeIntervalSince1970: 5 * 3600))
         XCTAssertEqual(row?.date, Date(timeIntervalSince1970: 7 * 3600))
 
+        let id = row?.id
+        h.record(title: "Charger connected", subtitle: "Power adapter plugged in", colorHex: 0x32D74B,
+                 suppressed: false, at: Date(timeIntervalSince1970: 8 * 3600))
+        XCTAssertEqual(h.entries.first?.id, id, "review round 1: the row keeps its id as it counts up")
+        XCTAssertEqual(h.entries.first?.times, 4)
+
         // A silenced one, or one with other text, is a different row.
         h.record(title: "Charger connected", subtitle: "Power adapter plugged in", colorHex: 0x32D74B, suppressed: true)
         h.record(title: "Charger connected", subtitle: "Other text", colorHex: 0x32D74B, suppressed: true)
-        XCTAssertEqual(h.entries.map(\.times), [1, 1, 3])
+        XCTAssertEqual(h.entries.map(\.times), [1, 1, 4])
     }
 
     func testFileWrittenBeforeRepeatsFoldsOnLoad() throws {
@@ -78,7 +84,7 @@ final class AlertHistoryTests: XCTestCase {
         XCTAssertEqual(rows.map(\.title), ["Charger connected", "Battery dropped to 20%"])
         XCTAssertEqual(rows.map(\.times), [2, 1])
         XCTAssertEqual(rows.first?.firstTs, 200)
-        XCTAssertEqual(rows.first?.id, list.first?.id, "the newest row of a run keeps its id")
+        XCTAssertEqual(rows.first?.id, list[1].id, "a folded run keeps the id of its first row")
     }
 
     func testPersistsAndReloads() throws {

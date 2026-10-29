@@ -38,8 +38,8 @@ case .duplicate:
     // Another instance is already running; bring it forward and exit.
     otherZest()?.activate(options: [])
     exit(0)
-case .unlocked(let openError):
-    NSLog("Zest: could not open \(lockPath) (errno \(openError)); running without the single-instance lock")
+case .unlocked(let lockError):
+    NSLog("Zest: no single-instance lock at \(lockPath) (errno \(lockError)); running without it")
 case .acquired:
     break
 }
