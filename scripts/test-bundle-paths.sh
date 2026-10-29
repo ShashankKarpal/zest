@@ -11,10 +11,11 @@ trap 'rm -rf "$TMP"' EXIT
 fails=0
 checks=0
 
-# case <name> <want exit> <folder>
+# case_ <name> <want exit> <folder> [shim folder put first on PATH]
 case_() {
-  local name="$1" want="$2" dir="$3" rc=0
-  bash "$CHECK" "$dir" >/dev/null 2>&1 || rc=$?
+  local name="$1" want="$2" dir="$3" shim="${4:-}" rc=0
+  if [ -n "$shim" ]; then PATH="$shim:$PATH" bash "$CHECK" "$dir" >/dev/null 2>&1 || rc=$?
+  else bash "$CHECK" "$dir" >/dev/null 2>&1 || rc=$?; fi
   checks=$((checks + 1))
   if [ "$rc" = "$want" ]; then echo "ok   $name"
   else fails=$((fails + 1)); echo "FAIL $name (exit $rc, want $want)"; fi
@@ -59,10 +60,7 @@ chmod 600 "$TMP/locked/f"
 mkdir -p "$TMP/shim"
 printf '#!/bin/sh\nexit 2\n' > "$TMP/shim/grep"
 chmod 755 "$TMP/shim/grep"
-checks=$((checks + 1)); rc=0
-PATH="$TMP/shim:$PATH" bash "$CHECK" "$TMP/clean" >/dev/null 2>&1 || rc=$?
-if [ "$rc" = 2 ]; then echo "ok   grep error is an error, not a pass or a leak"
-else fails=$((fails + 1)); echo "FAIL grep error is an error, not a pass or a leak (exit $rc, want 2)"; fi
+case_ "grep error is an error, not a pass or a leak" 2 "$TMP/clean" "$TMP/shim"
 
 # A login that is a system folder name ("usr") must not fail on /usr/bin/pmset, while
 # /Users/ is still caught for that builder.
@@ -71,13 +69,8 @@ printf '#!/bin/sh\n[ "$1" = "-un" ] && echo usr && exit 0\nexec /usr/bin/id "$@"
 chmod 755 "$TMP/idshim/id"
 printf '\x00/usr/bin/pmset\x00/usr/sbin/system_profiler\x00' > "$TMP/sys/Contents/MacOS/Zest"
 printf '\x00/usr/bin/pmset\x00/Users/usr/zest/\x00' > "$TMP/sysleak/Contents/MacOS/Zest"
-for c in "sys:0:system-folder login passes on system paths" "sysleak:1:system-folder login still catches /Users/"; do
-  dir="${c%%:*}"; rest="${c#*:}"; want="${rest%%:*}"; name="${rest#*:}"
-  checks=$((checks + 1)); rc=0
-  PATH="$TMP/idshim:$PATH" bash "$CHECK" "$TMP/$dir" >/dev/null 2>&1 || rc=$?
-  if [ "$rc" = "$want" ]; then echo "ok   $name"
-  else fails=$((fails + 1)); echo "FAIL $name (exit $rc, want $want)"; fi
-done
+case_ "system-folder login passes on system paths" 0 "$TMP/sys" "$TMP/idshim"
+case_ "system-folder login still catches /Users/" 1 "$TMP/sysleak" "$TMP/idshim"
 
 echo "test-bundle-paths: $checks checks, $fails failed"
 [ "$fails" = 0 ]
