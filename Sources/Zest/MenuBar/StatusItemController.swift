@@ -81,7 +81,7 @@ final class StatusItemController {
         if popover.isShown { popover.performClose(nil) }
         else {
             if popover.contentViewController == nil {
-                popover.contentViewController = NSHostingController(rootView:
+                popover.contentViewController = Self.popoverContent(
                     DropdownView(state: state,
                                  openCommandCenter: { [weak self] in self?.showCommandCenter() },
                                  openSettings: { [weak self] in self?.showSettings() },
@@ -90,6 +90,16 @@ final class StatusItemController {
             }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
+    }
+
+    // NSPopover sizes itself from the controller's preferredContentSize, which a hosting
+    // controller leaves at zero unless asked. The popover then fell back to 320 x 320 and
+    // cut the dropdown off below the power flow. Now it fits the content up to
+    // DropdownView.maxHeight and scrolls beyond that.
+    static func popoverContent<V: View>(_ view: V) -> NSHostingController<V> {
+        let host = NSHostingController(rootView: view)
+        host.sizingOptions = .preferredContentSize
+        return host
     }
 
     func showCommandCenter() {

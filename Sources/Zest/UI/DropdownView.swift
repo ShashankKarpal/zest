@@ -9,6 +9,10 @@ struct DropdownView: View {
     var openSettings: () -> Void
     var toggleLowPowerMode: () -> Void
 
+    // The popover fits the content up to this height, then scrolls.
+    static let width: CGFloat = 360
+    static let maxHeight: CGFloat = 640
+
     var body: some View {
         let snap = state.battery.snapshot
         ScrollView {
@@ -72,8 +76,8 @@ struct DropdownView: View {
             }
             .padding(18)
         }
-        .frame(width: 360)
-        .frame(maxHeight: 640)
+        .frame(width: Self.width)
+        .frame(maxHeight: Self.maxHeight)
         .background(Theme.cardBG)
     }
 
