@@ -26,17 +26,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// Single-instance guard: a file lock ensures only one Zest runs, no matter how it is
-// launched (manual open, LaunchAgent, or login item), so there is never a duplicate menu
-// bar icon. The descriptor is intentionally kept open for the process lifetime.
-let lockPath = AppConfig.dir.appendingPathComponent("zest.lock").path
-let lockFD = open(lockPath, O_CREAT | O_RDWR, 0o644)
-if lockFD >= 0 && flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
-    // Another instance already holds the lock; bring it forward and exit.
+// Only one Zest runs (SingleInstance). The lock's descriptor stays open for the process
+// lifetime.
+func otherZest() -> NSRunningApplication? {
     NSRunningApplication.runningApplications(withBundleIdentifier: "com.shanky.zest")
-        .first { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }?
-        .activate(options: [])
+        .first { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+}
+let lockPath = AppConfig.dir.appendingPathComponent("zest.lock").path
+switch SingleInstance.acquire(lockPath: lockPath, otherCopyRunning: { otherZest() != nil }) {
+case .duplicate:
+    // Another instance is already running; bring it forward and exit.
+    otherZest()?.activate(options: [])
     exit(0)
+case .unlocked(let openError):
+    NSLog("Zest: could not open \(lockPath) (errno \(openError)); running without the single-instance lock")
+case .acquired:
+    break
 }
 
 let app = NSApplication.shared
