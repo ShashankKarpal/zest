@@ -77,9 +77,13 @@ final class BatteryRegistryTests: XCTestCase {
     }
 
     func testNotAvailableNeedsThreeMissesAndNoGoodReading() {
-        XCTAssertFalse(BatteryService.temperatureUnavailable(everRead: false, misses: 1), "one glitch is not 'not available'")
-        XCTAssertFalse(BatteryService.temperatureUnavailable(everRead: false, misses: 2))
-        XCTAssertTrue(BatteryService.temperatureUnavailable(everRead: false, misses: 3))
-        XCTAssertFalse(BatteryService.temperatureUnavailable(everRead: true, misses: 50), "worked once on this Mac: unknown, not unavailable")
+        var h = BatteryService.TemperatureSourceHealth()
+        XCTAssertFalse(h.record(nil)); XCTAssertFalse(h.unavailable, "one glitch is not 'not available'")
+        XCTAssertFalse(h.record(nil)); XCTAssertFalse(h.unavailable)
+        XCTAssertTrue(h.record(nil), "three misses in a row: drop and reopen the reader")
+        XCTAssertTrue(h.unavailable)
+        XCTAssertFalse(h.record(33.8)); XCTAssertFalse(h.unavailable)
+        for _ in 0..<50 { _ = h.record(nil) }
+        XCTAssertFalse(h.unavailable, "worked once on this Mac: unknown, not unavailable")
     }
 }

@@ -29,7 +29,9 @@ final class SMCReader {
     static let batteryTemperatureKeys = ["TB0T", "TB1T", "TB2T"]
 
     private var connection: io_connect_t = 0
-    private var keyInfo: [UInt32: (size: UInt32, type: UInt32)] = [:]   // fixed per key
+    // Fixed per key; a key that does not exist is kept as size 0, so it is asked about once
+    // per reader.
+    private var keyInfo: [UInt32: (size: UInt32, type: UInt32)] = [:]
 
     init?() {
         guard MemoryLayout<KeyData>.stride == 80 else { return nil }
@@ -38,7 +40,7 @@ final class SMCReader {
         defer { IOObjectRelease(service) }
         guard IOServiceOpen(service, mach_task_self_, 0, &connection) == KERN_SUCCESS else { return nil }
     }
-    deinit { IOServiceClose(connection) }
+    deinit { if connection != 0 { IOServiceClose(connection) } }
 
     // Mean of the battery sensors that answer with a plausible value; nil when none do.
     func batteryTemperature() -> Double? {
@@ -73,8 +75,8 @@ final class SMCReader {
         let code = key.utf8.reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
         if keyInfo[code] == nil {
             var ask = KeyData(); ask.key = code; ask.data8 = Self.readKeyInfo
-            guard let info = call(&ask) else { return nil }
-            keyInfo[code] = (info.keyInfo.0, info.keyInfo.1)
+            let info = call(&ask)
+            keyInfo[code] = info.map { ($0.keyInfo.0, $0.keyInfo.1) } ?? (0, 0)
         }
         guard let info = keyInfo[code] else { return nil }
         let size = Int(info.size)

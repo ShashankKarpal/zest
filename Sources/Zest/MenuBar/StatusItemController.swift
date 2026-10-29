@@ -17,6 +17,7 @@ final class StatusItemController {
     private var popover = NSPopover()
     private var iconUpdater: MenuBarIconUpdater!
     private var popoverCloseObserver: NSObjectProtocol?
+    private var screensObserver: NSObjectProtocol?
     private var commandCenter: NSWindow?
     private var settings: NSWindow?
     private var bag = Set<AnyCancellable>()
@@ -51,6 +52,9 @@ final class StatusItemController {
                 }
             })
         iconUpdater.updateNow()
+        screensObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.iconUpdater.invalidate()
+        }
 
         state.battery.$snapshot
             .receive(on: RunLoop.main)
@@ -62,7 +66,7 @@ final class StatusItemController {
             .store(in: &bag)
     }
 
-    deinit { if let o = popoverCloseObserver { NotificationCenter.default.removeObserver(o) } }
+    deinit { [popoverCloseObserver, screensObserver].compactMap { $0 }.forEach { NotificationCenter.default.removeObserver($0) } }
 
     private func currentIcon() -> MenuBarIcon {
         let style = state.config.menuBar

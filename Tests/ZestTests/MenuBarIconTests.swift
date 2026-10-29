@@ -72,6 +72,17 @@ final class MenuBarIconTests: XCTestCase {
         XCTAssertEqual(h.images.count, 3, "a signal after the burst schedules again")
     }
 
+    func testInvalidateDrawsAgainWithUnchangedInputs() {
+        let h = Harness()
+        h.updater.updateNow()
+        h.updater.invalidate()
+        h.scheduler.runAll()
+        XCTAssertEqual(h.images.count, 2, "a display change redraws the same glyph once")
+        XCTAssertEqual(h.titles.count, 2)
+        h.change()
+        XCTAssertEqual(h.images.count, 2)
+    }
+
     func testPercentChangeSetsTheImageOnly() {
         let h = Harness()
         h.updater.updateNow()

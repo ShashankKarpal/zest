@@ -103,26 +103,28 @@ final class BatteryService: ObservableObject {
         }
     }
 
-    // SMC battery temperature. A failed open is retried after a minute. The tile says "not
-    // available" only when no sensor has answered for three refreshes in a row and none has
-    // since launch; a miss after a good reading is shown as unknown ("--"), never as a stale
-    // value or as "not available".
+    // SMC battery temperature. Only real attempts (an open or a read) count. After three
+    // misses in a row the reader is dropped and reopened at most once a minute, which also
+    // recovers a connection that died (sleep, an AppleSMC restart).
     private var smc: SMCReader?
     private var smcRetryAt: Date = .distantPast
-    private var smcMisses = 0
-    private var smcEverRead = false
+    private var smcHealth = TemperatureSourceHealth()
 
     private func smcTemperature() -> (value: Double?, unavailable: Bool) {
+        var attempted = false
+        var value: Double? = nil
         if smc == nil, Date() >= smcRetryAt {
+            attempted = true
             smc = SMCReader()
             if smc == nil { smcRetryAt = Date().addingTimeInterval(60) }
         }
-        let value = smc?.batteryTemperature()
-        if value != nil { smcEverRead = true; smcMisses = 0 } else { smcMisses += 1 }
-        return (value, Self.temperatureUnavailable(everRead: smcEverRead, misses: smcMisses))
+        if let reader = smc { attempted = true; value = reader.batteryTemperature() }
+        if attempted, smcHealth.record(value), smc != nil {
+            smc = nil
+            smcRetryAt = Date().addingTimeInterval(60)
+        }
+        return (value, smcHealth.unavailable)
     }
-
-    static func temperatureUnavailable(everRead: Bool, misses: Int) -> Bool { !everRead && misses >= 3 }
 
     // Registry dictionary to snapshot fields. Pure, so both layouts are testable.
     //
@@ -147,6 +149,22 @@ final class BatteryService: ObservableObject {
             snap.adapterName = ad["Name"] as? String
             if let mv = ad["AdapterVoltage"] as? Int { snap.adapterVoltage = Double(mv) / 1000.0 }
             snap.adapterCurrentMA = ad["Current"] as? Int
+        }
+    }
+
+    // The tile says "not available" only when three attempts in a row found no sensor and
+    // none has answered since launch; a miss after a good reading is unknown ("--"), never a
+    // stale value or "not available".
+    struct TemperatureSourceHealth {
+        private(set) var everRead = false
+        private(set) var misses = 0
+        var unavailable: Bool { !everRead && misses >= 3 }
+
+        // Returns true when the reader should be dropped and reopened.
+        mutating func record(_ value: Double?) -> Bool {
+            if value != nil { everRead = true; misses = 0; return false }
+            misses += 1
+            return misses % 3 == 0
         }
     }
 

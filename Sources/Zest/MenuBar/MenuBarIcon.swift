@@ -67,6 +67,13 @@ final class MenuBarIconUpdater {
         }
     }
 
+    // Draws again even if nothing changed, for a menu bar that moved to a display with a
+    // different scale (the image is a bitmap drawn at one scale).
+    func invalidate() {
+        shown = nil
+        setNeedsUpdate()
+    }
+
     func updateNow() {
         let next = current()
         if next.glyph != shown?.glyph { setImage(next.glyph) }
