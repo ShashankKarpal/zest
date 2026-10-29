@@ -45,9 +45,9 @@ final class BatteryHistory: ObservableObject {
             guard let c = s.maxCapacity else { return nil }
             return (s.ts, Double(c))
         }
-        guard let fit = capacityTrend(capPoints) else { return (nil, nil) }
+        // No capacity trend yet still leaves the cycle rate, which has its own data.
         var monthsTo80: Int? = nil
-        if fit.slope < -0.0001 {
+        if let fit = capacityTrend(capPoints), fit.slope < -0.0001 {
             let remaining = fit.now - 80
             let daysTo80 = remaining / (-fit.slope)
             if daysTo80 > 0 { monthsTo80 = Int((daysTo80 / 30).rounded()) }

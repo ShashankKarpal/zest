@@ -77,10 +77,19 @@ final class MenuBarIconUpdater {
         setNeedsUpdate()
     }
 
-    // With nothing to draw into (no status button), nothing is recorded as shown, so the
-    // next request draws in full.
+    // With nothing to draw into (no status button), nothing is recorded as shown and the
+    // update is tried again a second later, so the icon cannot stay blank on a steady battery.
     func updateNow() {
-        guard canDraw() else { return }
+        guard canDraw() else {
+            guard !pending else { return }
+            pending = true
+            schedule(1) { [weak self] in
+                guard let self else { return }
+                self.pending = false
+                self.updateNow()
+            }
+            return
+        }
         let next = current()
         if next.glyph != shown?.glyph { setImage(next.glyph) }
         if shown == nil || next.title != shown?.title { setTitle(next.title) }

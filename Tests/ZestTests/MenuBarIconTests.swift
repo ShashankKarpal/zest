@@ -100,6 +100,21 @@ final class MenuBarIconTests: XCTestCase {
         XCTAssertEqual(h.titles.count, 1)
     }
 
+    // Review round 2: with no button the update was not tried again, so on a steady battery
+    // (no change signals) the icon stayed blank.
+    func testWithoutAButtonTheUpdateIsTriedAgain() {
+        let h = Harness()
+        h.buttonExists = false
+        h.updater.updateNow()
+        XCTAssertEqual(h.scheduler.queued.count, 1, "a retry is scheduled")
+        h.scheduler.runAll()
+        XCTAssertEqual(h.scheduler.queued.count, 1, "and again while there is still no button")
+        h.buttonExists = true
+        h.scheduler.runAll()                          // no change signal at all
+        XCTAssertEqual(h.images.count, 1, "the icon is drawn once the button exists")
+        XCTAssertTrue(h.scheduler.queued.isEmpty)
+    }
+
     func testPercentChangeSetsTheImageOnly() {
         let h = Harness()
         h.updater.updateNow()

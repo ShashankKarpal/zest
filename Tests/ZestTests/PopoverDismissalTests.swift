@@ -22,7 +22,11 @@ final class PopoverDismissalTests: XCTestCase {
             now: { [unowned self] in self.clock },
             locate: { [unowned self] _ in self.pointer },
             isActive: { [unowned self] in self.appActive })
-        func start(_ close: @escaping () -> Void) { dismissal.start(frame: { [unowned self] in self.dropdown }, close: close) }
+        var keyForDropdown = true                      // the key event is aimed at the dropdown
+        func start(_ close: @escaping () -> Void) {
+            dismissal.start(frame: { [unowned self] in self.dropdown },
+                            isDropdownKey: { [unowned self] _ in self.keyForDropdown }, close: close)
+        }
     }
 
     private func mouseDown(_ type: NSEvent.EventType = .leftMouseDown) -> NSEvent {
@@ -92,6 +96,18 @@ final class PopoverDismissalTests: XCTestCase {
         XCTAssertFalse(f.dismissal.isWatching)
         f.dismissal.stop()
         XCTAssertEqual(f.installed, f.removed, "a second stop removes nothing twice")
+    }
+
+    // Review round 2: while the dropdown was open, Escape in the Settings or Command Center
+    // window closed the dropdown instead and never reached that window.
+    func testEscapeInAnotherZestWindowIsLeftToThatWindow() {
+        let f = Fakes()
+        var closes = 0
+        f.start { closes += 1 }
+        f.keyForDropdown = false
+        let escape = key(PopoverDismissal.escapeKeyCode)
+        XCTAssertTrue(f.local[NSEvent.EventTypeMask.keyDown.rawValue]?(escape) === escape, "the other window gets its Escape")
+        XCTAssertEqual(closes, 0)
     }
 
     // Review round 1: focus went back on every close, even when Zest was already the

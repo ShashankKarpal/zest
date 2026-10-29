@@ -107,8 +107,14 @@ final class StatusItemController {
                 )
             }
             dismissal.start(frame: { [weak self] in self?.popover.contentViewController?.view.window?.frame },
+                            isDropdownKey: { [weak self] event in
+                                guard let self, let dropdown = self.popover.contentViewController?.view.window else { return false }
+                                return event.window === dropdown
+                            },
                             close: { [weak self] in self?.popover.performClose(nil) })
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            // No dropdown on screen means no close notice will come to remove the monitors.
+            if !popover.isShown { dismissal.stop() }
         }
     }
 

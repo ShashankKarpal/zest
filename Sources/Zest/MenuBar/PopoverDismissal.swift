@@ -55,8 +55,11 @@ final class PopoverDismissal {
     var isWatching: Bool { !monitors.isEmpty }
 
     // As the dropdown opens. `frame` is the dropdown window's frame in screen coordinates
-    // (nil if it has none yet); `close` closes the popover; stop() runs when it has closed.
-    func start(frame: @escaping () -> NSRect?, close: @escaping () -> Void) {
+    // (nil if it has none yet); `isDropdownKey` says whether a key event is aimed at the
+    // dropdown, so Escape in another Zest window still reaches that window; `close` closes
+    // the popover; stop() runs when it has closed.
+    func start(frame: @escaping () -> NSRect?, isDropdownKey: @escaping (NSEvent) -> Bool,
+               close: @escaping () -> Void) {
         stop()
         activatedForDropdown = !isActive()
         activate()
@@ -71,7 +74,7 @@ final class PopoverDismissal {
             close()
         }) { monitors.append(m) }
         if let m = addLocal(.keyDown, { event in
-            guard event.keyCode == Self.escapeKeyCode else { return event }
+            guard event.keyCode == Self.escapeKeyCode, isDropdownKey(event) else { return event }
             close()
             return nil
         }) { monitors.append(m) }

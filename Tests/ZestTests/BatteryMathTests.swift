@@ -110,6 +110,17 @@ final class BatteryMathTests: XCTestCase {
         XCTAssertNil(p.monthsTo80)
     }
 
+    // Review round 2: no capacity trend must not blank the cycle rate, which has its own data.
+    func testCycleRateSurvivesWithoutACapacityTrend() {
+        let p = BatteryHistory.projection(of: [
+            sample(day: "2026-09-19", daysAgo: 40, cap: nil, cycles: 10),
+            sample(day: "2026-10-28", daysAgo: 4.0 / 1440, cap: 100, cycles: 29),
+            sample(day: "2026-10-29", daysAgo: 0, cap: 99, cycles: 30)
+        ])
+        XCTAssertNil(p.monthsTo80)
+        XCTAssertEqual(p.perMonthCycles ?? -1, 15.0, accuracy: 0.05)
+    }
+
     func testProjectionFlatCapacityHasNoDate() {
         let p = BatteryHistory.projection(of: [
             sample(day: "2026-08-01", daysAgo: 30, cap: 92, cycles: 50),
