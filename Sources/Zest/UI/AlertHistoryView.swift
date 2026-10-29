@@ -1,7 +1,8 @@
 import SwiftUI
 
 // Command Center > Alerts: the last 50 alerts Zest raised, newest first, with the ones
-// quiet hours swallowed marked so a missed nudge can be checked after the fact.
+// quiet hours swallowed marked so a missed nudge can be checked after the fact. A run of
+// the same alert is one row with its count and its first and latest times.
 struct AlertHistoryView: View {
     @ObservedObject var history: AlertHistory
 
@@ -37,6 +38,7 @@ struct AlertHistoryView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(e.title).font(.system(size: 12, weight: .semibold)).foregroundColor(e.suppressed ? Theme.dim : Theme.text)
+                    if e.times > 1 { Badge(text: "\(e.times) times", color: Theme.dim, filled: false) }
                     if e.suppressed { Badge(text: "quiet hours", color: Theme.dim, filled: false) }
                 }
                 if !e.subtitle.isEmpty {
@@ -47,6 +49,9 @@ struct AlertHistoryView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(Self.relative.localizedString(for: e.date, relativeTo: Date())).font(.system(size: 10)).foregroundColor(Theme.faint)
                 Text(Self.stamp.string(from: e.date)).font(.system(size: 9)).foregroundColor(Theme.ghost)
+                if e.times > 1 {
+                    Text("first \(Self.stamp.string(from: e.firstDate))").font(.system(size: 9)).foregroundColor(Theme.ghost)
+                }
             }
         }
         .padding(10)
