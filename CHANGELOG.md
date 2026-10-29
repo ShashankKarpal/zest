@@ -2,6 +2,13 @@
 
 All notable changes to Zest. Versions before v3.0 were not tracked in this file.
 
+## v3.1.2
+
+- The close button on an alert pill closes that pill. It used to close the app's key window, or the first visible window, so with the Command Center open, or two pills on screen, it closed the wrong window and left the pill (2026-09-02 audit Z-B10).
+- Command Center > Alerts: a run of the same alert is one row with its count and its first and latest times, so a charger plugged in fifty times no longer pushes every other alert out of the list. A different alert in between starts a new row, so the order of events stays. An existing history file is folded the same way when Zest starts; on the developer's Mac, 50 rows (49 of them "Charger connected") became 3.
+- The months-to-80-percent projection in Battery Health fits a line through every daily capacity sample (least squares) instead of drawing it through the first and last samples only, where one odd reading at either end set the whole projection (audit Z-B11). With a flat history, as on most Macs in their first months, it still shows no date.
+- A second copy of Zest exits even when the lock file in Application Support cannot be opened: it then checks for another running Zest by bundle identifier. Before, an unopenable lock file let every copy run, each with its own menu bar icon (audit Z-B13).
+
 ## v3.1.1
 
 - From the first time the dropdown was opened until Zest quit, Zest used about 30 percent CPU and kept WindowServer busy, and the menu bar icon was reported flickering. The dropdown's SwiftUI view stayed alive after the popover closed, and its power-flow animation repeats forever, so the closed popover was laid out and rendered on every display frame. The dropdown is now built when it opens and released when it closes. Measured on the developer's Mac over 20 s after one open and close: Zest 30.2 percent CPU before, 0.3 percent after. A closed Command Center window keeps its place; its power-flow dots pause while it is closed. Details: `docs/2026-10-29-render-loop-and-battery-keys.md`.
