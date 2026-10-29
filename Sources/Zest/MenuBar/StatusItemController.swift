@@ -16,6 +16,7 @@ final class StatusItemController {
     private var statusItem: NSStatusItem!
     private var popover = NSPopover()
     private var iconUpdater: MenuBarIconUpdater!
+    private let dismissal = PopoverDismissal()
     private var popoverCloseObserver: NSObjectProtocol?
     private var screensObserver: NSObjectProtocol?
     private var commandCenter: NSWindow?
@@ -31,10 +32,17 @@ final class StatusItemController {
         }
         popover.behavior = .transient
         popoverCloseObserver = NotificationCenter.default.addObserver(forName: NSPopover.didCloseNotification, object: popover, queue: .main) { [weak self] _ in
+            // Not if a quick reopen already started watching again.
+            if self?.popover.isShown == false { self?.dismissal.stop() }
             // After the close finishes; a quick reopen keeps its content.
             DispatchQueue.main.async {
                 guard let self, !self.popover.isShown else { return }
                 self.popover.contentViewController = nil
+                // Zest was activated for the dropdown; with no window of its own left open,
+                // hand the focus back to the app that had it.
+                if NSApp.isActive, !NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) }) {
+                    NSApp.deactivate()
+                }
             }
         }
 
@@ -88,6 +96,7 @@ final class StatusItemController {
         guard let button = statusItem.button else { return }
         if popover.isShown { popover.performClose(nil) }
         else {
+            guard !dismissal.justClosedByOutsideClick() else { return }
             if popover.contentViewController == nil {
                 popover.contentViewController = Self.popoverContent(
                     DropdownView(state: state,
@@ -96,6 +105,7 @@ final class StatusItemController {
                                  toggleLowPowerMode: { [weak self] in self?.state.chargeLimiter.toggleLowPower() })
                 )
             }
+            dismissal.start { [weak self] in self?.popover.performClose(nil) }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
     }
