@@ -6,7 +6,7 @@ import SwiftUI
 // separate click-through window so it never intercepts the cursor.
 final class OverlayManager {
     private let config: AppConfig
-    private var pillWindows: [NSWindow] = []
+    private(set) var pillWindows: [NSWindow] = []
     private var glowWindow: NSWindow?
     private var glowTimer: Timer?
 
@@ -22,18 +22,12 @@ final class OverlayManager {
         if payload.glow { flashGlow(color: Color(hex: payload.colorHex), on: screen) }
 
         let size = NSSize(width: 340 * 1.0, height: 92)
-        let content = PillView(payload: payload) { [weak self] window in
-            self?.dismiss(window)
-        }
-        let host = NSHostingView(rootView: content)
-        let panel = makePanel(size: size)
-        panel.contentView = host
+        let panel = makePill(payload, size: size)
 
         let frame = pillFrame(for: payload.position, size: size, on: screen)
         panel.setFrame(frame.offsetBy(dx: 0, dy: 12), display: false)
         panel.alphaValue = 0
         panel.orderFrontRegardless()
-        pillWindows.append(panel)
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.28
@@ -44,6 +38,18 @@ final class OverlayManager {
         if !payload.persistent {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.dismiss(panel) }
         }
+    }
+
+    // A pill's close button dismisses that pill. It used to dismiss NSApp.keyWindow, or the
+    // first visible window, which could be the Command Center or another pill (audit Z-B10).
+    func makePill(_ payload: AlertPayload, size: NSSize) -> NSPanel {
+        let panel = makePanel(size: size)
+        panel.contentView = NSHostingView(rootView: PillView(payload: payload) { [weak self, weak panel] in
+            guard let panel else { return }
+            self?.dismiss(panel)
+        })
+        pillWindows.append(panel)
+        return panel
     }
 
     private func dismiss(_ window: NSWindow) {
@@ -124,9 +130,9 @@ final class OverlayManager {
 }
 
 // MARK: Pill view
-private struct PillView: View {
+struct PillView: View {
     let payload: AlertPayload
-    let onClose: (NSWindow) -> Void
+    let onClose: () -> Void
     @State private var hovering = false
 
     var body: some View {
@@ -159,7 +165,7 @@ private struct PillView: View {
         )
         .overlay(alignment: .topTrailing) {
             if hovering {
-                Button(action: { if let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) { onClose(w) } }) {
+                Button(action: onClose) {
                     Image(systemName: "xmark.circle.fill").foregroundColor(Theme.faint)
                 }.buttonStyle(.plain).padding(6)
             }
