@@ -16,6 +16,7 @@ final class StatusItemController {
     private var statusItem: NSStatusItem!
     private var popover = NSPopover()
     private var iconUpdater: MenuBarIconUpdater!
+    private var popoverCloseObserver: NSObjectProtocol?
     private var commandCenter: NSWindow?
     private var settings: NSWindow?
     private var bag = Set<AnyCancellable>()
@@ -28,7 +29,7 @@ final class StatusItemController {
             button.target = self
         }
         popover.behavior = .transient
-        NotificationCenter.default.addObserver(forName: NSPopover.didCloseNotification, object: popover, queue: .main) { [weak self] _ in
+        popoverCloseObserver = NotificationCenter.default.addObserver(forName: NSPopover.didCloseNotification, object: popover, queue: .main) { [weak self] _ in
             // After the close finishes; a quick reopen keeps its content.
             DispatchQueue.main.async {
                 guard let self, !self.popover.isShown else { return }
@@ -60,6 +61,8 @@ final class StatusItemController {
             .sink { [weak self] _ in self?.iconUpdater.setNeedsUpdate() }
             .store(in: &bag)
     }
+
+    deinit { if let o = popoverCloseObserver { NotificationCenter.default.removeObserver(o) } }
 
     private func currentIcon() -> MenuBarIcon {
         let style = state.config.menuBar

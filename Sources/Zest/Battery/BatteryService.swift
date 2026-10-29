@@ -97,14 +97,32 @@ final class BatteryService: ObservableObject {
         lastRegistry = dict
         Self.apply(registry: dict, to: &snap)
         if snap.temperatureC == nil {
-            snap.temperatureC = smc?.batteryTemperature()
-            snap.temperatureUnavailable = snap.temperatureC == nil
+            let t = smcTemperature()
+            snap.temperatureC = t.value
+            snap.temperatureUnavailable = t.unavailable
         }
     }
 
-    // Created on first use; nil when AppleSMC cannot be opened (the temperature then shows
-    // as unavailable).
-    private lazy var smc: SMCReader? = SMCReader()
+    // SMC battery temperature. A failed open is retried after a minute. The tile says "not
+    // available" only when no sensor has answered for three refreshes in a row and none has
+    // since launch; a miss after a good reading is shown as unknown ("--"), never as a stale
+    // value or as "not available".
+    private var smc: SMCReader?
+    private var smcRetryAt: Date = .distantPast
+    private var smcMisses = 0
+    private var smcEverRead = false
+
+    private func smcTemperature() -> (value: Double?, unavailable: Bool) {
+        if smc == nil, Date() >= smcRetryAt {
+            smc = SMCReader()
+            if smc == nil { smcRetryAt = Date().addingTimeInterval(60) }
+        }
+        let value = smc?.batteryTemperature()
+        if value != nil { smcEverRead = true; smcMisses = 0 } else { smcMisses += 1 }
+        return (value, Self.temperatureUnavailable(everRead: smcEverRead, misses: smcMisses))
+    }
+
+    static func temperatureUnavailable(everRead: Bool, misses: Int) -> Bool { !everRead && misses >= 3 }
 
     // Registry dictionary to snapshot fields. Pure, so both layouts are testable.
     //

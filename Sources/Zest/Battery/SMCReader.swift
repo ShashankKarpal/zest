@@ -29,6 +29,7 @@ final class SMCReader {
     static let batteryTemperatureKeys = ["TB0T", "TB1T", "TB2T"]
 
     private var connection: io_connect_t = 0
+    private var keyInfo: [UInt32: (size: UInt32, type: UInt32)] = [:]   // fixed per key
 
     init?() {
         guard MemoryLayout<KeyData>.stride == 80 else { return nil }
@@ -46,9 +47,12 @@ final class SMCReader {
         })
     }
 
+    // Rounded to the 0.1 C the tile shows, so float noise does not republish the snapshot on
+    // every refresh. A key that exists without a sensor reads 0, hence the lower bound.
     static func batteryTemperature(_ readings: [Double]) -> Double? {
-        let ok = readings.filter { (-20...90).contains($0) }
-        return ok.isEmpty ? nil : ok.reduce(0, +) / Double(ok.count)
+        let ok = readings.filter { (1...90).contains($0) }
+        guard !ok.isEmpty else { return nil }
+        return (ok.reduce(0, +) / Double(ok.count) * 10).rounded() / 10
     }
 
     // Decodes a temperature reading. Unknown types give nil rather than a guess.
@@ -67,13 +71,17 @@ final class SMCReader {
     private func read(_ key: String) -> (type: String, bytes: [UInt8])? {
         guard key.utf8.count == 4 else { return nil }
         let code = key.utf8.reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
-        var ask = KeyData(); ask.key = code; ask.data8 = Self.readKeyInfo
-        guard let info = call(&ask) else { return nil }
-        let size = Int(info.keyInfo.0)
+        if keyInfo[code] == nil {
+            var ask = KeyData(); ask.key = code; ask.data8 = Self.readKeyInfo
+            guard let info = call(&ask) else { return nil }
+            keyInfo[code] = (info.keyInfo.0, info.keyInfo.1)
+        }
+        guard let info = keyInfo[code] else { return nil }
+        let size = Int(info.size)
         guard size > 0, size <= 32 else { return nil }
-        var get = KeyData(); get.key = code; get.keyInfo.0 = info.keyInfo.0; get.data8 = Self.readBytes
+        var get = KeyData(); get.key = code; get.keyInfo.0 = info.size; get.data8 = Self.readBytes
         guard let out = call(&get) else { return nil }
-        let type = String(bytes: [24, 16, 8, 0].map { UInt8((info.keyInfo.1 >> $0) & 0xff) }, encoding: .ascii) ?? ""
+        let type = String(bytes: [24, 16, 8, 0].map { UInt8((info.type >> $0) & 0xff) }, encoding: .ascii) ?? ""
         let all = withUnsafeBytes(of: out.bytes) { Array($0) }
         return (type, Array(all.prefix(size)))
     }

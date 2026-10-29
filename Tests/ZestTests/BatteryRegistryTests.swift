@@ -65,9 +65,21 @@ final class BatteryRegistryTests: XCTestCase {
     }
 
     func testBatteryTemperatureAveragesPlausibleSensorsOnly() {
-        XCTAssertEqual(SMCReader.batteryTemperature([33.8, 33.3, 33.8]) ?? 0, 33.633, accuracy: 0.001)
-        XCTAssertEqual(SMCReader.batteryTemperature([33.0, -40, 150]) ?? 0, 33.0, accuracy: 0.001)
+        XCTAssertEqual(SMCReader.batteryTemperature([33.8, 33.3, 33.8]) ?? 0, 33.6, accuracy: 1e-9, "rounded to the 0.1 C shown")
+        XCTAssertEqual(SMCReader.batteryTemperature([33.0, -40, 150]) ?? 0, 33.0, accuracy: 1e-9)
+        XCTAssertEqual(SMCReader.batteryTemperature([31.5, 31.8, 0.0]) ?? 0, 31.7, accuracy: 1e-9, "a key without a sensor reads 0 and is left out")
         XCTAssertNil(SMCReader.batteryTemperature([]))
-        XCTAssertNil(SMCReader.batteryTemperature([-100, 400]))
+        XCTAssertNil(SMCReader.batteryTemperature([-100, 400, 0]))
+    }
+
+    func testFloatNoiseDoesNotChangeTheTemperature() {
+        XCTAssertEqual(SMCReader.batteryTemperature([31.53125]), SMCReader.batteryTemperature([31.546875]))
+    }
+
+    func testNotAvailableNeedsThreeMissesAndNoGoodReading() {
+        XCTAssertFalse(BatteryService.temperatureUnavailable(everRead: false, misses: 1), "one glitch is not 'not available'")
+        XCTAssertFalse(BatteryService.temperatureUnavailable(everRead: false, misses: 2))
+        XCTAssertTrue(BatteryService.temperatureUnavailable(everRead: false, misses: 3))
+        XCTAssertFalse(BatteryService.temperatureUnavailable(everRead: true, misses: 50), "worked once on this Mac: unknown, not unavailable")
     }
 }
