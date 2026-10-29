@@ -75,8 +75,9 @@ final class AppState: ObservableObject {
     var panelsEnabled: Bool { config.panelsEnabled }
 
     // True while the Command Center window is on screen; the panel scripts only run
-    // while something displays their output (see WidgetPanelRunner.demanded).
-    var commandCenterVisible = false { didSet { updatePanelDemand() } }
+    // while something displays their output (see WidgetPanelRunner.demanded). Published so
+    // the kept-alive Command Center can pause its power-flow dots while closed.
+    @Published var commandCenterVisible = false { didSet { updatePanelDemand() } }
 
     func updatePanelDemand() {
         let mode = config.menuBar.claudeMode

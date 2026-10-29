@@ -42,19 +42,22 @@ final class SMCReader {
     }
     deinit { if connection != 0 { IOServiceClose(connection) } }
 
-    // Mean of the battery sensors that answer with a plausible value; nil when none do.
+    // Median of the battery sensors that answer with a plausible value; nil when none do.
     func batteryTemperature() -> Double? {
         Self.batteryTemperature(Self.batteryTemperatureKeys.compactMap { key in
             read(key).flatMap { Self.celsius(type: $0.type, bytes: $0.bytes) }
         })
     }
 
-    // Rounded to the 0.1 C the tile shows, so float noise does not republish the snapshot on
-    // every refresh. A key that exists without a sensor reads 0, hence the lower bound.
+    // The median, so one stuck sensor cannot drag the value; rounded to the 0.1 C the tile
+    // shows, so float noise does not republish the snapshot on every refresh. A key that
+    // exists without a sensor reads 0, hence the lower bound.
     static func batteryTemperature(_ readings: [Double]) -> Double? {
-        let ok = readings.filter { (1...90).contains($0) }
+        let ok = readings.filter { (1...90).contains($0) }.sorted()
         guard !ok.isEmpty else { return nil }
-        return (ok.reduce(0, +) / Double(ok.count) * 10).rounded() / 10
+        let mid = ok.count / 2
+        let median = ok.count % 2 == 1 ? ok[mid] : (ok[mid - 1] + ok[mid]) / 2
+        return (median * 10).rounded() / 10
     }
 
     // Decodes a temperature reading. Unknown types give nil rather than a guess.

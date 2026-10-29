@@ -64,8 +64,10 @@ final class BatteryRegistryTests: XCTestCase {
         XCTAssertNil(SMCReader.celsius(type: "flt ", bytes: [1, 2]), "a short value is rejected")
     }
 
-    func testBatteryTemperatureAveragesPlausibleSensorsOnly() {
-        XCTAssertEqual(SMCReader.batteryTemperature([33.8, 33.3, 33.8]) ?? 0, 33.6, accuracy: 1e-9, "rounded to the 0.1 C shown")
+    func testBatteryTemperatureIsTheMedianOfPlausibleSensors() {
+        XCTAssertEqual(SMCReader.batteryTemperature([33.8, 33.3, 33.8]) ?? 0, 33.8, accuracy: 1e-9)
+        XCTAssertEqual(SMCReader.batteryTemperature([30.0, 30.4, 85.0]) ?? 0, 30.4, accuracy: 1e-9, "one stuck sensor cannot drag the value")
+        XCTAssertEqual(SMCReader.batteryTemperature([33.31, 33.36]) ?? 0, 33.3, accuracy: 1e-9, "rounded to the 0.1 C shown")
         XCTAssertEqual(SMCReader.batteryTemperature([33.0, -40, 150]) ?? 0, 33.0, accuracy: 1e-9)
         XCTAssertEqual(SMCReader.batteryTemperature([31.5, 31.8, 0.0]) ?? 0, 31.7, accuracy: 1e-9, "a key without a sensor reads 0 and is left out")
         XCTAssertNil(SMCReader.batteryTemperature([]))

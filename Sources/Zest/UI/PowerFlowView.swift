@@ -11,6 +11,9 @@ import SwiftUI
 // (2026-10-29). Nothing here animates layout now.
 struct PowerFlowView: View {
     let snap: BatterySnapshot
+    // False pauses the dots. The Command Center window is kept between opens, and a running
+    // TimelineView in it kept Zest at about 12 percent CPU after close (2026-10-29).
+    var animated = true
     static let dotCycle: TimeInterval = 1.2   // seconds for a dot to cross one link
 
     var body: some View {
@@ -54,7 +57,7 @@ struct PowerFlowView: View {
                 Rectangle().fill(Color.white.opacity(0.08)).frame(height: 2)
                 if active {
                     // 30 frames a second is smooth for 4 pt dots and half the work of 60.
-                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { context in
                         let phase = Self.phase(at: context.date)
                         ZStack {
                             ForEach(0..<3, id: \.self) { i in

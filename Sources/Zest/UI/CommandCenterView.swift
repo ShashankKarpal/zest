@@ -88,7 +88,7 @@ struct CommandCenterView: View {
             let snap = state.battery.snapshot
             VStack(alignment: .leading, spacing: 16) {
                 ArcGauge(pct: Double(snap.percent), color: Theme.batteryColor(Double(snap.percent)), big: "\(snap.percent)%", small: snap.isCharging ? "CHARGING" : "ON BATTERY").frame(maxWidth: 300)
-                SectionHead(label: "POWER FLOW"); PowerFlowView(snap: snap)
+                SectionHead(label: "POWER FLOW"); PowerFlowView(snap: snap, animated: state.commandCenterVisible)
                 Divider1(); BatteryHealthView(snap: snap, history: state.batteryHistory)
                 Divider1(); ChargeLimitControls(config: state.config, limiter: state.chargeLimiter, reprobeOnAppear: true) { state.config.save() }
             }

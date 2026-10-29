@@ -121,7 +121,8 @@ final class BatteryService: ObservableObject {
         if let reader = smc { attempted = true; value = reader.batteryTemperature() }
         if attempted, smcHealth.record(value), smc != nil {
             smc = nil
-            smcRetryAt = Date().addingTimeInterval(60)
+            // A Mac with no battery sensor is asked again every 10 minutes, not every minute.
+            smcRetryAt = Date().addingTimeInterval(smcHealth.unavailable ? 600 : 60)
         }
         return (value, smcHealth.unavailable)
     }
