@@ -3,11 +3,19 @@ import SwiftUI
 import Combine
 
 // Owns the menu bar status item, the dropdown popover, and the Command Center / Settings
-// windows. Redraws the icon whenever the battery snapshot or menu bar style changes.
+// windows. Redraws the icon when what it shows changes (MenuBarIconUpdater).
+//
+// The dropdown's SwiftUI tree exists only while the popover is open. It holds
+// PowerFlowView, whose animation repeats forever; with a hosting controller kept for the
+// app's lifetime it never saw onDisappear, so after the first click the closed popover was
+// laid out and rendered on every display frame: about 30 percent CPU for Zest and a busy
+// WindowServer until Zest quit (2026-10-29). A closed Command Center window does not do
+// this (measured the same day), so it is kept between opens as before.
 final class StatusItemController {
     private let state: AppState
     private var statusItem: NSStatusItem!
     private var popover = NSPopover()
+    private var iconUpdater: MenuBarIconUpdater!
     private var commandCenter: NSWindow?
     private var settings: NSWindow?
     private var bag = Set<AnyCancellable>()
@@ -20,37 +28,43 @@ final class StatusItemController {
             button.target = self
         }
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView:
-            DropdownView(state: state,
-                         openCommandCenter: { [weak self] in self?.showCommandCenter() },
-                         openSettings: { [weak self] in self?.showSettings() },
-                         toggleLowPowerMode: { [weak state] in state?.chargeLimiter.toggleLowPower() })
-        )
-        redrawIcon()
+        NotificationCenter.default.addObserver(forName: NSPopover.didCloseNotification, object: popover, queue: .main) { [weak self] _ in
+            // After the close finishes; a quick reopen keeps its content.
+            DispatchQueue.main.async {
+                guard let self, !self.popover.isShown else { return }
+                self.popover.contentViewController = nil
+            }
+        }
+
+        iconUpdater = MenuBarIconUpdater(
+            current: { [unowned self] in self.currentIcon() },
+            setImage: { [unowned self] glyph in self.statusItem.button?.image = BatteryIconRenderer.image(glyph) },
+            setTitle: { [unowned self] text in
+                guard let button = self.statusItem.button else { return }
+                if let text {
+                    button.title = " \(text)"
+                    button.imagePosition = .imageLeading
+                } else {
+                    button.title = ""
+                    button.imagePosition = .imageOnly
+                }
+            })
+        iconUpdater.updateNow()
 
         state.battery.$snapshot
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.redrawIcon() }
+            .sink { [weak self] _ in self?.iconUpdater.setNeedsUpdate() }
             .store(in: &bag)
         state.objectWillChange
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.redrawIcon() }
+            .sink { [weak self] _ in self?.iconUpdater.setNeedsUpdate() }
             .store(in: &bag)
     }
 
-    func redrawIcon() {
-        guard let button = statusItem.button else { return }
-        let img = BatteryIconRenderer.image(snapshot: state.battery.snapshot, style: state.config.menuBar)
-        button.image = img
-
-        let mode = state.config.menuBar.claudeMode
-        if mode != .off, let text = claudeReadout(mode) {
-            button.title = " \(text)"
-            button.imagePosition = .imageLeading
-        } else {
-            button.title = ""
-            button.imagePosition = .imageOnly
-        }
+    private func currentIcon() -> MenuBarIcon {
+        let style = state.config.menuBar
+        let title = style.claudeMode == .off ? nil : claudeReadout(style.claudeMode)
+        return MenuBarIcon(snapshot: state.battery.snapshot, style: style, title: title)
     }
 
     // Reads the session or weekly percent from the relevant account panel's live JSON.
@@ -65,7 +79,17 @@ final class StatusItemController {
     @objc private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown { popover.performClose(nil) }
-        else { popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY) }
+        else {
+            if popover.contentViewController == nil {
+                popover.contentViewController = NSHostingController(rootView:
+                    DropdownView(state: state,
+                                 openCommandCenter: { [weak self] in self?.showCommandCenter() },
+                                 openSettings: { [weak self] in self?.showSettings() },
+                                 toggleLowPowerMode: { [weak self] in self?.state.chargeLimiter.toggleLowPower() })
+                )
+            }
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
     }
 
     func showCommandCenter() {

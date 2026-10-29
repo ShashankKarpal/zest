@@ -3,27 +3,27 @@ import AppKit
 // Draws a compact, iPhone-style battery pill for the menu bar with the percent (or time
 // remaining) inside. Smart colors reflect level and charge state. Options come from
 // MenuBarStyle so the icon can be light or dark, colored or monochrome, with or without
-// the number.
+// the number. Reads only MenuBarIcon.Glyph, which is what the redraw check compares.
 enum BatteryIconRenderer {
-    static func image(snapshot: BatterySnapshot, style: MenuBarStyle) -> NSImage {
+    static func image(_ glyph: MenuBarIcon.Glyph) -> NSImage {
         let height: CGFloat = 15
-        let plugged = snapshot.isACPower
+        let plugged = glyph.isACPower
         let boltSlot: CGFloat = plugged ? 10 : 0        // left slot for the charging bolt
-        let baseW: CGFloat = style.hideNumber ? 28 : 44 // battery pill area
+        let baseW: CGFloat = glyph.hideNumber ? 28 : 44 // battery pill area
         let width = boltSlot + baseW
         let img = NSImage(size: NSSize(width: width, height: height))
         img.lockFocus()
         defer { img.unlockFocus() }
 
-        let baseGlyph: NSColor = style.darkGlyph ? .black : .white
-        let level = Double(snapshot.percent)
+        let baseGlyph: NSColor = glyph.darkGlyph ? .black : .white
+        let level = Double(glyph.percent)
         let fillColor: NSColor
-        if style.statusColors {
-            if snapshot.isCharging || (snapshot.isACPower && snapshot.percent >= 80) {
+        if glyph.statusColors {
+            if glyph.isCharging || (glyph.isACPower && glyph.percent >= 80) {
                 fillColor = nsColor(0x32D74B)
-            } else if snapshot.percent <= 10 {
+            } else if glyph.percent <= 10 {
                 fillColor = nsColor(0xEF4444)
-            } else if snapshot.percent <= 20 {
+            } else if glyph.percent <= 20 {
                 fillColor = nsColor(0xF59E0B)
             } else {
                 fillColor = baseGlyph
@@ -35,7 +35,7 @@ enum BatteryIconRenderer {
         // Charging bolt in the left slot whenever plugged in (matches macOS, which shows the
         // bolt when on power even while holding at the 80% limit).
         if plugged {
-            let boltColor = style.statusColors ? nsColor(0x32D74B) : baseGlyph
+            let boltColor = glyph.statusColors ? nsColor(0x32D74B) : baseGlyph
             drawBolt(centerX: boltSlot/2, centerY: height/2, color: boltColor)
         }
 
@@ -59,16 +59,16 @@ enum BatteryIconRenderer {
         let fillW = max(1, maxFill * CGFloat(min(100, max(0, level)) / 100))
         let fillRect = NSRect(x: bodyRect.minX + inset, y: bodyRect.minY + inset, width: fillW, height: bodyRect.height - inset*2)
         let fillPath = NSBezierPath(roundedRect: fillRect, xRadius: 2, yRadius: 2)
-        fillColor.withAlphaComponent(style.hideNumber ? 0.9 : 0.55).setFill()
+        fillColor.withAlphaComponent(glyph.hideNumber ? 0.9 : 0.55).setFill()
         fillPath.fill()
 
         // Number / time
-        if !style.hideNumber {
+        if !glyph.hideNumber {
             let text: String
-            if style.showTimeRemaining, let m = snapshot.timeRemainingMinutes, m > 0 {
+            if let m = glyph.minutesShown {
                 text = "\(m/60):\(String(format: "%02d", m%60))"
             } else {
-                text = "\(snapshot.percent)"
+                text = "\(glyph.percent)"
             }
             let font = NSFont.systemFont(ofSize: 9, weight: .bold)
             let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: baseGlyph]

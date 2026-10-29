@@ -1,11 +1,17 @@
 import SwiftUI
 
 // Live animated power flow: adapter -> battery -> Mac, with real wattage read from the
-// AppleSmartBattery AdapterDetails and Voltage x InstantAmperage. Dots animate along the
+// AppleSmartBattery AdapterDetails and Voltage x InstantAmperage. Dots move along the
 // path whose direction follows charge vs discharge.
+//
+// The dots take their place from the clock (TimelineView), not from an animation. The old
+// `withAnimation(.repeatForever) { phase = 1 }` in onAppear never moved them (phase 0 and
+// phase 1 put every dot in the same place), but its endless transaction caught the
+// dropdown's first layout: the whole card collapsed and regrew every 1.2 s while open
+// (2026-10-29). Nothing here animates layout now.
 struct PowerFlowView: View {
     let snap: BatterySnapshot
-    @State private var phase: CGFloat = 0
+    static let dotCycle: TimeInterval = 1.2   // seconds for a dot to cross one link
 
     var body: some View {
         let adapterW = Double(snap.adapterWatts ?? 0)
@@ -31,7 +37,6 @@ struct PowerFlowView: View {
                 metric("Adapter", snap.adapterName ?? (snap.isACPower ? "USB-C" : "None"))
             }
         }
-        .onAppear { withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) { phase = 1 } }
     }
 
     private func node(icon: String, label: String, sub: String, color: Color) -> some View {
@@ -48,17 +53,31 @@ struct PowerFlowView: View {
             ZStack {
                 Rectangle().fill(Color.white.opacity(0.08)).frame(height: 2)
                 if active {
-                    ForEach(0..<3, id: \.self) { i in
-                        Circle().fill(color)
-                            .frame(width: 4, height: 4)
-                            .offset(x: dotX(w: w, i: i, reverse: reverse))
+                    // 30 frames a second is smooth for 4 pt dots and half the work of 60.
+                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                        let phase = Self.phase(at: context.date)
+                        ZStack {
+                            ForEach(0..<3, id: \.self) { i in
+                                Circle().fill(color)
+                                    .frame(width: 4, height: 4)
+                                    .offset(x: Self.dotX(phase: phase, width: w, index: i, reverse: reverse))
+                            }
+                        }
                     }
                 }
             }.frame(maxHeight: .infinity, alignment: .center)
         }.frame(height: 24)
     }
 
-    private func dotX(w: CGFloat, i: Int, reverse: Bool) -> CGFloat {
+    // Where in the cycle the dots are at `date`, 0 up to (not including) 1.
+    static func phase(at date: Date) -> CGFloat {
+        let t = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: dotCycle)
+        return CGFloat((t < 0 ? t + dotCycle : t) / dotCycle)
+    }
+
+    // Horizontal offset of dot `index` (three dots, a third of a cycle apart) from the centre
+    // of a link `width` wide.
+    static func dotX(phase: CGFloat, width w: CGFloat, index i: Int, reverse: Bool) -> CGFloat {
         let base = (phase + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
         let p = reverse ? (1 - base) : base
         return -w/2 + p * w
