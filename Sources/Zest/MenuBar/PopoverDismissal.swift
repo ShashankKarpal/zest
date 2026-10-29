@@ -8,6 +8,11 @@ import AppKit
 // as the dropdown opens, so Escape reaches it, and a global mouse-down monitor closes it,
 // which also covers other menu bar icons (opening another app's menu need not deactivate
 // Zest). Both monitors exist only while the dropdown is open.
+//
+// The outside-click monitor ignores a mouse-down inside the dropdown's own window. Without
+// that check (f6aaa79), a click on a dropdown button closed the dropdown on mouse-down, so
+// the button's action never ran (owner report 2026-10-29). Each decision is logged, one
+// line per click while the dropdown is open, with the event's window number.
 final class PopoverDismissal {
     typealias AddGlobal = (NSEvent.EventTypeMask, @escaping (NSEvent) -> Void) -> Any?
     typealias AddLocal = (NSEvent.EventTypeMask, @escaping (NSEvent) -> NSEvent?) -> Any?
@@ -20,6 +25,7 @@ final class PopoverDismissal {
     private let removeMonitor: (Any) -> Void
     private let activate: () -> Void
     private let now: () -> Date
+    private let mouseLocation: () -> NSPoint
     private var monitors: [Any] = []
     private var lastOutsideClose: Date = .distantPast
 
@@ -27,24 +33,32 @@ final class PopoverDismissal {
          addLocal: @escaping AddLocal = { NSEvent.addLocalMonitorForEvents(matching: $0, handler: $1) },
          removeMonitor: @escaping (Any) -> Void = { NSEvent.removeMonitor($0) },
          activate: @escaping () -> Void = { NSApp.activate(ignoringOtherApps: true) },
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         mouseLocation: @escaping () -> NSPoint = { NSEvent.mouseLocation }) {
         self.addGlobal = addGlobal
         self.addLocal = addLocal
         self.removeMonitor = removeMonitor
         self.activate = activate
         self.now = now
+        self.mouseLocation = mouseLocation
     }
 
     deinit { stop() }
 
     var isWatching: Bool { !monitors.isEmpty }
 
-    // As the dropdown opens. `close` closes the popover; stop() runs when it has closed.
-    func start(close: @escaping () -> Void) {
+    // As the dropdown opens. `frame` is the dropdown window's frame in screen coordinates
+    // (nil if it has none yet); `close` closes the popover; stop() runs when it has closed.
+    func start(frame: @escaping () -> NSRect?, close: @escaping () -> Void) {
         stop()
         activate()
-        if let m = addGlobal(Self.outsideClicks, { [weak self] _ in
+        if let m = addGlobal(Self.outsideClicks, { [weak self] event in
             guard let self else { return }
+            let point = self.mouseLocation()
+            let box = frame()
+            let inside = box?.contains(point) ?? false
+            NSLog("Zest: dropdown click monitor: \(inside ? "inside, ignored" : "outside, closing") at \(point) in \(box.map { "\($0)" } ?? "no frame") (event window \(event.windowNumber))")
+            guard !inside else { return }
             self.lastOutsideClose = self.now()
             close()
         }) { monitors.append(m) }

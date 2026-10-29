@@ -105,7 +105,8 @@ final class StatusItemController {
                                  toggleLowPowerMode: { [weak self] in self?.state.chargeLimiter.toggleLowPower() })
                 )
             }
-            dismissal.start { [weak self] in self?.popover.performClose(nil) }
+            dismissal.start(frame: { [weak self] in self?.popover.contentViewController?.view.window?.frame },
+                            close: { [weak self] in self?.popover.performClose(nil) })
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
     }
