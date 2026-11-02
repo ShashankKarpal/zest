@@ -13,11 +13,12 @@
 <p align="center">
   <img alt="Zest dropdown: power flow, health and device batteries" src="docs/dropdown.png" width="420">
   <img alt="Zest battery health history" src="docs/battery-health.png" width="420">
+  <br><sub>Screenshots from v3.0 (July 2026). Since v3.1.1 the dropdown fits its content and Battery Health shows temperature and capacities on macOS 27.</sub>
 </p>
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%2014%2B-4D4323?style=flat-square">
-  <img alt="Status" src="https://img.shields.io/badge/status-v3-4D4323?style=flat-square">
+  <img alt="Status" src="https://img.shields.io/badge/status-v3.1.2-4D4323?style=flat-square">
   <img alt="Local only" src="https://img.shields.io/badge/local-only-4D4323?style=flat-square">
   <img alt="Stack" src="https://img.shields.io/badge/built%20with-Swift-1A1917?style=flat-square">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-1A1917?style=flat-square"></a>
@@ -29,8 +30,8 @@
 - Warns before you run low, and nudges at 80 percent.
 - Names the apps draining the battery and grades them green, yellow, or red.
 - Tracks battery aging with a capacity trendline and a months-to-80-percent projection.
-- Shows every Apple device battery in one place.
-- Embeds your own Ubersicht widgets as native panels.
+- Shows your Apple devices in one place: the battery where the device reports it (AirPods, Magic accessories, other Bluetooth gear), presence where it does not (iPhone, iPad).
+- Embeds your own Übersicht widgets as native panels.
 
 ## Features
 
@@ -93,7 +94,7 @@
 
 ### Bring your own widgets
 
-- **Ubersicht widget panels** rendered as native panels, each running its original pipeline verbatim. Off until you choose a scripts folder in Settings (see Configuration).
+- **Übersicht widget panels** rendered as native panels, each running its original pipeline verbatim. Off until you choose a scripts folder in Settings (see Configuration).
 
 ### System
 
@@ -165,7 +166,7 @@ Settings live in `~/Library/Application Support/Zest/config.json`, created on fi
 
 **Event log** (`eventLogDir`, Settings > General): when set, Zest appends `zest-events.jsonl` in that folder, one line per event such as `{"ts":"2026-09-05T04:47:51Z","source":"zest","host":"...","event":"plugged_in","percent":40,"adapterWatts":96}`. Events: `plugged_in`, `unplugged`, `fully_charged`, `charge_cycle` (cycles, maxCapacityPercent), `battery_temp` (level normal / warm / hot, tempC), `low_power_mode` (on), `thermal_state` (nominal / fair / serious / critical), `zest_start`, `zest_stop` (version). At most one line per event type per minute; the file rotates at 1 MB keeping one previous generation.
 
-**Widget panels are off by default.** The four extra Command Center sections (two account panels, System Vitals, Claude Code) only appear after you point Zest at a folder of panel scripts in Settings > General > Widget panels. Until then Zest never runs a script, and the menu bar readout picker that depends on them is hidden. Even when configured, a panel script runs only while the Command Center is open (or, for the account panels, while the menu bar readout uses it), so panels cost nothing in the background. To build that folder: copy `panels/panels.example.json` to `panels/panels.local.json` (gitignored, machine-specific), edit the widget paths to match your own Ubersicht setup, run `panels/extract-panels.py`, then choose the `panels/` folder in Settings. The scripts run under your account exactly as extracted; Zest never rewrites them.
+**Widget panels are off by default.** The four extra Command Center sections (two account panels, System Vitals, Claude Code) only appear after you point Zest at a folder of panel scripts in Settings > General > Widget panels. Until then Zest never runs a script, and the menu bar readout picker that depends on them is hidden. Even when configured, a panel script runs only while the Command Center is open (or, for the account panels, while the menu bar readout uses it), so panels cost nothing in the background. To build that folder: copy `panels/panels.example.json` to `panels/panels.local.json` (gitignored, machine-specific), edit the widget paths to match your own Übersicht setup, run `panels/extract-panels.py`, then choose the `panels/` folder in Settings. The scripts run under your account exactly as extracted; Zest never rewrites them.
 
 ## Permissions and flags
 
@@ -192,14 +193,14 @@ zest-smc/           privileged helper, its installer, and test-helper.sh
 scripts/            LaunchAgent installer and uninstaller, release path check and its test
 panels/             widget extraction (generated pipelines are gitignored)
 design/             brand assets, tokens, BRAND.md
-docs/               screenshots
+docs/               screenshots and engineering notes (2026-10-29 render loop and battery keys)
 build.sh            build, assemble, sign; `install` copies to ~/Applications
 notarize.sh         notarize, staple and zip a release build
 ```
 
 ## Privacy
 
-Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for four fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Ubersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings. The optional event log writes a plain text file to a folder you choose and nowhere else.
+Everything is local. No accounts, no telemetry, no license server. The only network use is, if you enable the digest feature, a request to LM Studio on localhost. The optional root helper grants passwordless `sudo` for four fixed commands; see Permissions and flags above for exactly what that means. The optional widget panels run scripts you extracted from your own Übersicht widgets; whatever those scripts do (some widgets check the network) is theirs, and Zest runs none of them until you choose a folder in Settings. The optional event log writes a plain text file to a folder you choose and nowhere else.
 
 ## License
 
